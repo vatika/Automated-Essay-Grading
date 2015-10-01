@@ -5,27 +5,32 @@ import string
 from collections import Counter
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
+from nltk.stem.porter import PorterStemmer
 
-nltk.download('corpora')
-nltk.download('punkt')
-def get_tokens(f):
-    t = []
-    for i in f:
-            lowers = i.lower()
-            no_punctuation = lowers.translate(None, string.punctuation)
-            tokens = nltk.word_tokenize(no_punctuation)
-            t.append(tokens)
-    return t
+stemmer = PorterStemmer()
 
-with open('training_set_rel3.csv', 'rb') as train:
+def stem_tokens(tokens, stemmer):
+    stemmed = []
+    for item in tokens:
+        stemmed.append(stemmer.stem(item))
+    return stemmed
+
+
+def tokenize(f):
+    tokens = nltk.word_tokenize(f)
+    stems = stem_tokens(tokens, stemmer)
+    return stems
+
+with open('training_3.csv', 'rb') as train:
     reader = csv.reader(train)
     f = []
     for row in reader:
-        f.append(row[2])
+        essay = row[2].decode('utf-8')
+        f.append(row[2].decode('utf-8'))
 
-tokens = get_tokens(f)
-filtered = [w for w in tokens if not w in stopwords.words('english')]
 tfidf = TfidfVectorizer(tokenizer=tokenize, stop_words='english')
-tfs = tfidf.fit_transform(tokens)
-print tfs
-
+tfs = tfidf.fit_transform(f)
+feature_names = tfidf.get_feature_names()
+response = tfidf.transform(f)
+for col in response.nonzero()[1]:
+        print feature_names[col], ' - ', response[0, col]
