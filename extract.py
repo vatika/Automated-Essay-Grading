@@ -21,7 +21,7 @@ def tokenize(f):
     stems = stem_tokens(tokens, stemmer)
     return stems
 
-with open('training_3.csv', 'rb') as train:
+with open('Data/training_3.csv', 'rb') as train:
     reader = csv.reader(train)
     f = []
     for row in reader:
