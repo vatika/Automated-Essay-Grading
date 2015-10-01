@@ -25,14 +25,18 @@ def tokenize(f):
 with open('Data/training_3.csv', 'rb') as train:
     reader = csv.reader(train)
     f = []
+    filtered = []
     for row in reader:
-        essay = row[2].decode('utf-8')
+        essay = row[2].translate(None, string.punctuation).decode('utf-8')
+        tokens = tokenize(essay)
+        filtered.extend([w for w in tokens if not w in stopwords.words('english')])
 
-        f.append(row[2].translate(None, string.punctuation).decode('utf-8'))
-
+count = Counter(filtered)
+d = [x[0] for x in count.most_common(100)]
+print d
+f = [k for k in filtered if k in d]
 tfidf = TfidfVectorizer(tokenizer=tokenize, stop_words='english').fit_transform(f)
 cosine_similarities = linear_kernel(tfidf[0:1], tfidf).flatten()
 related = cosine_similarities.argsort()[:-5:-1]
-print related
 
 
