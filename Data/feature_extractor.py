@@ -15,6 +15,7 @@ from sklearn.metrics.pairwise import linear_kernel
 import enchant
 
 enchant_dict = enchant.Dict("en_US")
+stemmer = PorterStemmer()
 
 class Point:
     def __init__(self,essay_id,essay_set,essay_str,score):
@@ -34,10 +35,20 @@ class Point:
         no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
         tokens = nltk.word_tokenize(no_punctuation)
         self.features.append(len(tokens)) # Number of tokens
+        self.features.append(float(len(''.join(tokens)))/float(len(tokens))) # Average size of token
         self.features.append(len([1 for token in tokens if enchant_dict.check(token) == False])) # Number of misspelled words
 
     def get_all_features(self):
         self.numerical_features()
+
+def get_stem_tokens(tokens, stemmer):
+    stemmed = []
+    for item in tokens:
+        stemmed.append(stemmer.stem(item))
+    return stemmed
+
+def stem_tokenize(essay):
+    return get_stem_tokens(nltk.word_tokenize(essay), stemmer)
 
 def make_points():
     for index in xrange(3,4):
