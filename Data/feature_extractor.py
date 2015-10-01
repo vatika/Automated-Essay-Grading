@@ -4,8 +4,17 @@ import nltk
 import string
 
 from collections import Counter
+
 from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
+
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import linear_kernel
+
+import enchant
+
+enchant_dict = enchant.Dict("en_US")
 
 class Point:
     def __init__(self,essay_id,essay_set,essay_str,score):
@@ -25,6 +34,7 @@ class Point:
         no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
         tokens = nltk.word_tokenize(no_punctuation)
         self.features.append(len(tokens)) # Number of tokens
+        self.features.append(len([1 for token in tokens if enchant_dict.check(token) == False])) # Number of misspelled words
 
     def get_all_features(self):
         self.numerical_features()
@@ -38,7 +48,7 @@ def make_points():
                 if row[1] == str(3):
                     p = Point(row[0],row[1],row[2], int(row[6]))
                     out_file.write(str(p))
-                    
+
 def partition_essays():
     with open('training_set.csv', 'rb') as f:
         csv_rows = list(csv.reader(f, delimiter = ','))
