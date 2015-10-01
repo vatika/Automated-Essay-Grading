@@ -26,7 +26,8 @@ with open('training_3.csv', 'rb') as train:
     f = []
     for row in reader:
         essay = row[2].decode('utf-8')
-        f.append(row[2].decode('utf-8'))
+
+        f.append(row[2].translate(None, string.punctuation).decode('utf-8'))
 
 tfidf = TfidfVectorizer(tokenizer=tokenize, stop_words='english')
 tfs = tfidf.fit_transform(f)
