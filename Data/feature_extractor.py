@@ -32,9 +32,21 @@ class Point:
 
     def numerical_features(self):
         self.features.append(len(self.essay_str.split('.'))) # Number of sentences
+        s = {}
         for sentence in self.essay_str.split('.'):
-            tmp_tokens = word_tokenize(sentence)
-            nltk.pos_tag(tmp_tokens)
+            try:
+                tmp_tokens = nltk.word_tokenize(sentence)
+                values = nltk.pos_tag(tmp_tokens)
+                for v in values:
+                    if v[1] in s:
+                        s[v[1]] += 1
+                    else:
+                        s[v[1]] = 1
+            except UnicodeDecodeError:
+                continue
+            except IndexError:
+                continue
+        print s
         no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
         self.tokens = nltk.word_tokenize(no_punctuation) # Yes, A new self variable. Sorry.
         self.features.append(len(self.tokens)) # Number of tokens
