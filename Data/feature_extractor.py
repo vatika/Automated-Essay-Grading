@@ -24,7 +24,7 @@ class Point:
         self.essay_str = essay_str
         self.score = score
         self.features = []
-        self.get_all_features()
+        self.all_features()
 
     def __str__(self):
         feature_str = ','.join(str(x) for x in self.features)
@@ -32,6 +32,13 @@ class Point:
 
     def numerical_features(self):
         self.features.append(len(self.essay_str.split('.'))) # Number of sentences
+        no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
+        self.tokens = nltk.word_tokenize(no_punctuation) # Yes, A new self variable. Sorry.
+        self.features.append(len(self.tokens)) # Number of tokens
+        self.features.append((float(len(''.join(self.tokens)))/float(len(self.tokens)))*10) # Average size of token * 10
+        self.features.append(len([1 for token in self.tokens if enchant_dict.check(token) == False])) # Number of misspelled words
+
+    def pos_features(self):
         s = {}
         for sentence in self.essay_str.split('.'):
             try:
@@ -46,15 +53,13 @@ class Point:
                 continue
             except IndexError:
                 continue
+        # This is occurance of each kind of part of speech in the essay.
+        # We need to find a simple way to classify them and convert them into feature values.
         print s
-        no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
-        self.tokens = nltk.word_tokenize(no_punctuation) # Yes, A new self variable. Sorry.
-        self.features.append(len(self.tokens)) # Number of tokens
-        self.features.append((float(len(''.join(self.tokens)))/float(len(self.tokens)))*10) # Average size of token * 10
-        self.features.append(len([1 for token in self.tokens if enchant_dict.check(token) == False])) # Number of misspelled words
 
-    def get_all_features(self):
+    def all_features(self):
         self.numerical_features()
+        self.pos_features()
 
 def get_stem_tokens(tokens, stemmer):
     stemmed = []
