@@ -49,7 +49,7 @@ class Linear_Regression:
 def data_manipulation():
     for i in range(3,4): #to change after feature extraction done for all sets
         data = []
-        with open('./features_'+str(i)+'.csv','r') as in_file:
+        with open('./Data/features_'+str(i)+'.csv','r') as in_file:
              csv_content = list(csv.reader(in_file,delimiter=','))
              for row in csv_content:
                 data.append(row)
@@ -61,7 +61,7 @@ def data_manipulation():
         m = np.size(X,axis=0)
         X[:,0] = np.ones((m,1)) #bias units modified
         
-        out_file = open('./classifier_weights'+str(i)+'.csv','w')
+        out_file = open('./classifier_weights/essay_set'+str(i)+'.csv','w')
         
         L = Linear_Regression(X,Y)
         L.execute()
