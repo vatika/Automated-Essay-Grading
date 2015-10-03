@@ -25,7 +25,7 @@ class Point:
         self.score = score
         self.features = []
         self.all_features()
-    
+        self.bag_of_words = 0
     # return all the features along with the idendity of the essay (essay set , essay id etc)
     def __str__(self):
         feature_str = ','.join(str(x) for x in self.features)
@@ -58,14 +58,15 @@ class Point:
                 continue
         # This is occurance of each kind of part of speech in the essay.
         # We need to find a simple/complex way to classify them and convert them into feature values.
-        print s
+        #print s
     
     # compute all the features for the essay
     # to add spell unigrams and n-grams 
     def all_features(self):
         self.numerical_features()
         self.pos_features()
-
+    def set_bag_of_words(self, v):
+        self.bag_of_words = v
 #not in use right now
 def get_stem_tokens(tokens, stemmer):
     stemmed = []
@@ -77,21 +78,56 @@ def get_stem_tokens(tokens, stemmer):
 def stem_tokenize(essay):
     return get_stem_tokens(nltk.word_tokenize(essay), stemmer)
 
+def Bag_of_Words(essay_tokens, all_words):
+    
+    count = Counter(all_words)
+    common_words = [x[0] for x in count.most_common(10)]
 
+    essays  = [" ".join([str(word) for word in e if word in common_words]) for e in essay_tokens]
+    
+    tfidf = TfidfVectorizer(tokenizer=stem_tokenize, stop_words='english')
+    tfs = tfidf.fit_transform(essays)
 
+    feature_names = tfidf.get_feature_names()
+
+    v = []
+    for i in xrange(len(essay_tokens)):
+       value = 0
+       count_essay = Counter(essay_tokens[i])
+       common_w_essay = count_essay.most_common(10)
+       common_words_essay = [word[0] for word in common_w_essay]
+       for j in xrange(len(common_words_essay)):
+           if common_words_essay[j] in common_words:
+               for col in tfs.nonzero()[1]:
+                  if feature_names[col] == common_words_essay[j]:
+                           value += common_w_essay[j][1]*tfs[0,col]
+                           break
+       v.append(value)
+    return v
 #treating each essay as a (data)point in the essay set and extracting all the features
 def make_points():
     # currently performing tasks on essay set 3 only
     for index in xrange(3,4):
         with open('training_' + str(index) + '.csv','rb') as f:
+            all_words = []
+            essays = []
             csv_rows = list(csv.reader(f, delimiter = ','))
             out_file = open('features_' + str(index) + '.csv','w')
+            essay_tokens = []
+            points = []
             for row in csv_rows:
                 # currently performing tasks on essay set 3 only
                 if row[1] == str(3):
-                    p = Point(row[0], row[1], row[2], int(row[6]))
-                    out_file.write(str(p))
-                    
+                   tokens = stem_tokenize(row[2].translate(None, string.punctuation).decode('utf-8'))
+                   essay_tokens.append(tokens)
+                   all_words.extend(tokens)
+                   p = Point(row[0], row[1], row[2], int(row[6]))
+                   points.append(p)
+                   out_file.write(str(p))
+            values = Bag_of_Words(essay_tokens, all_words)
+            for i in xrange(len(points)):
+                points[i].set_bag_of_words(values[i])
+             
                     
 #partition the training essay sets into different csv files
 def partition_essays():
