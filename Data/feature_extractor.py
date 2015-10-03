@@ -14,7 +14,11 @@ from sklearn.metrics.pairwise import linear_kernel
 
 import enchant
 
+import urllib2
+from bs4 import BeautifulSoup
+
 enchant_dict = enchant.Dict("en_US")
+beauty_reference = {}
 stemmer = PorterStemmer()
 # http://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
 pos_classes = [ [ "CC","DT","EX","IN","MD","TO","UH","PDT","POS" ], [ "FW","CD","LS","RP","SYM" ], \
@@ -53,6 +57,19 @@ class Point:
         self.features.append((float(len(''.join(self.tokens)))/float(len(self.tokens)))*10) # Average size of token * 10
         self.features.append(len([1 for token in self.tokens if enchant_dict.check(token) == False])) # Number of misspelled words
 
+
+    def beautiful_word_score(self):
+        words = stem_tokenize(self.essay_str.translate(None, string.punctuation).decode('utf-8'))
+        self.beauty_score = 0
+        for word in words:
+            s = 1.0
+            for letter in word:
+                try:
+                    s = s*beauty_reference[letter.lower()]
+                except:
+                    pass
+            self.beauty_score += 1/s
+        self.features.append(self.beauty_score)
 
     def pos_features(self):
         '''
@@ -94,6 +111,7 @@ class Point:
         '''
         self.numerical_features()
         self.pos_features()
+        self.beautiful_word_score()
 
 def get_stem_tokens(tokens, stemmer):
     stemmed = []
@@ -139,6 +157,7 @@ def make_points():
             out_file = open('features_' + str(index) + '.csv','w')
             essay_tokens = []
             points = []
+            get_beauty_table()
             for row in csv_rows:
                 # currently performing tasks on essay set 3 only
                 if row[1] == str(3):
@@ -152,6 +171,24 @@ def make_points():
                 points[i].set_bag_of_words(values[i])
             for p in points:
                 out_file.write(str(p))
+
+def get_beauty_table():
+    #Get reference table
+    contenturl = "http://www.math.cornell.edu/~mec/2003-2004/cryptography/subs/frequencies.html"
+    soup = BeautifulSoup(urllib2.urlopen(contenturl).read())
+    global beauty_reference
+    table = soup.find("table")
+    rows = table.findAll('tr')
+    beauty_reference = {}
+    f = 0
+    for row in rows:
+            cols = row.findAll('td')
+            a,b,c,d,e = [c.text for c in cols]
+            if f:
+                    beauty_reference[d.encode('utf-8').lower()] = float(e.encode('utf-8'))
+            f = True
+
+
 
 def partition_essays():
     '''
