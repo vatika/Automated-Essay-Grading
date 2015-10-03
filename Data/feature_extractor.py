@@ -16,9 +16,17 @@ import enchant
 
 enchant_dict = enchant.Dict("en_US")
 stemmer = PorterStemmer()
+# http://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
+pos_classes = [ [ "CC","DT","EX","IN","MD","TO","UH","PDT","POS" ], [ "FW","CD","LS","RP","SYM" ], \
+                [ "JJ","JJR","JS" ], [ "NN","NNS","NNP", "NNPS" ], [ "PRP","PRP$" ], \
+                [ "RB","RBR","RBS" ], [ "VBD","VBG","VBN","VBP","VBZ" ], [ "WDT","WP","WP$","WRB" ],
+              ]
 
 class Point:
     def __init__(self,essay_id,essay_set,essay_str,score):
+        '''
+        We store the id, set_number, essay, actual score and the features
+        '''
         self.essay_id = essay_id
         self.essay_set = essay_set
         self.essay_str = essay_str
@@ -26,23 +34,32 @@ class Point:
         self.features = []
         self.all_features()
         self.bag_of_words = 0
-    # return all the features along with the idendity of the essay (essay set , essay id etc)
-    def __str__(self):
-        feature_str = ','.join(str(x) for x in self.features)
-        return ','.join([self.essay_id, self.essay_set, str(self.score), feature_str]) + '\n'
 
-    #numerical features as number of tokens , sentences , misspells ...
+    def __str__(self):
+        '''
+        return all the features along with the idendity of the essay (essay set , essay id etc)
+        '''
+        feature_str = ','.join(str(x) for x in self.features)
+        return ','.join([self.essay_id, self.essay_set, str(self.score), feature_str, str(self.bag_of_words)]) + '\n'
+
     def numerical_features(self):
+        '''
+        numerical features as number of tokens , sentences , misspells
+        '''
         self.features.append(len(self.essay_str.split('.'))) # Number of sentences
         no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
         self.tokens = nltk.word_tokenize(no_punctuation) # Yes, A new self variable. Sorry.
         self.features.append(len(self.tokens)) # Number of tokens
         self.features.append((float(len(''.join(self.tokens)))/float(len(self.tokens)))*10) # Average size of token * 10
         self.features.append(len([1 for token in self.tokens if enchant_dict.check(token) == False])) # Number of misspelled words
-    
-    #parts of speech(noun adjectives verbs ....) counts
+
+
     def pos_features(self):
+        '''
+        parts of speech(noun adjectives verbs ....) counts
+        '''
         s = {}
+        freqs = [0 for i in xrange(0,len(pos_classes))]
         for sentence in self.essay_str.split('.'):
             try:
                 tmp_tokens = nltk.word_tokenize(sentence)
@@ -56,40 +73,44 @@ class Point:
                 continue
             except IndexError:
                 continue
-        # This is occurance of each kind of part of speech in the essay.
-        # We need to find a simple/complex way to classify them and convert them into feature values.
-        #print s
-    
-    # compute all the features for the essay
-    # to add spell unigrams and n-grams 
+        for key,value in s.iteritems():
+             for index, pos in enumerate(pos_classes):
+                 if key in pos:
+                     freqs[index] += value
+                     break
+        self.features.extend(freqs)
+
+    def set_bag_of_words(self, v):
+        '''
+        bag of words value, the score is a linear combination
+        of the frequencies of most common words and associated weights
+        '''
+        self.bag_of_words = v
+
     def all_features(self):
+        '''
+        compute all the features for the essay
+        to add spell unigrams and n-grams
+        '''
         self.numerical_features()
         self.pos_features()
-    def set_bag_of_words(self, v):
-        self.bag_of_words = v
-#not in use right now
+
 def get_stem_tokens(tokens, stemmer):
     stemmed = []
     for item in tokens:
         stemmed.append(stemmer.stem(item))
     return stemmed
 
-#not in use right now
 def stem_tokenize(essay):
     return get_stem_tokens(nltk.word_tokenize(essay), stemmer)
 
 def Bag_of_Words(essay_tokens, all_words):
-    
     count = Counter(all_words)
     common_words = [x[0] for x in count.most_common(10)]
-
     essays  = [" ".join([str(word) for word in e if word in common_words]) for e in essay_tokens]
-    
     tfidf = TfidfVectorizer(tokenizer=stem_tokenize, stop_words='english')
     tfs = tfidf.fit_transform(essays)
-
     feature_names = tfidf.get_feature_names()
-
     v = []
     for i in xrange(len(essay_tokens)):
        value = 0
@@ -104,8 +125,11 @@ def Bag_of_Words(essay_tokens, all_words):
                            break
        v.append(value)
     return v
-#treating each essay as a (data)point in the essay set and extracting all the features
+
 def make_points():
+    '''
+    treating each essay as a (data)point in the essay set and extracting all the features
+    '''
     # currently performing tasks on essay set 3 only
     for index in xrange(3,4):
         with open('training_' + str(index) + '.csv','rb') as f:
@@ -123,14 +147,16 @@ def make_points():
                    all_words.extend(tokens)
                    p = Point(row[0], row[1], row[2], int(row[6]))
                    points.append(p)
-                   out_file.write(str(p))
             values = Bag_of_Words(essay_tokens, all_words)
             for i in xrange(len(points)):
                 points[i].set_bag_of_words(values[i])
-             
-                    
-#partition the training essay sets into different csv files
+            for p in points:
+                out_file.write(str(p))
+
 def partition_essays():
+    '''
+    partition the training essay sets into different csv files
+    '''
     with open('training_set.csv', 'rb') as f:
         csv_rows = list(csv.reader(f, delimiter = ','))
         index = 1
