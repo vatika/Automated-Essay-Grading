@@ -18,7 +18,14 @@ import urllib2
 from bs4 import BeautifulSoup
 
 enchant_dict = enchant.Dict("en_US")
-beauty_reference = {}
+# http://www.math.cornell.edu/~mec/2003-2004/cryptography/subs/frequencies.html
+beauty_reference = {
+    'a' : 8.12, 'b' : 1.49, 'c' : 2.71, 'd' : 4.32, 'e' : 12.02, 'f' : 2.30,
+    'g' : 2.03, 'h' : 5.92, 'i' : 7.31, 'j' : 0.10, 'k' : 0.69, 'l' : 3.98,
+    'm' : 2.61, 'n' : 6.95, 'o' : 7.68, 'p' : 1.82, 'q' : 0.11, 'r' : 6.02,
+    's' : 1.68, 't' : 9.10, 'u' : 2.88, 'v' : 1.11, 'w' : 2.09, 'x' : 0.17,
+    'y' : 2.11, 'z' : 0.07,
+}
 stemmer = PorterStemmer()
 # http://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
 pos_classes = [ [ "CC","DT","EX","IN","MD","TO","UH","PDT","POS" ], [ "FW","CD","LS","RP","SYM" ], \
@@ -45,6 +52,12 @@ class Point:
         '''
         feature_str = ','.join(str(x) for x in self.features)
         return ','.join([self.essay_id, self.essay_set, str(self.score), feature_str, str(self.bag_of_words)]) + '\n'
+
+    def get_label(self):
+        string = "id,set,human_score,sentence_count,word_count,avg_word_length,misspell_words,"
+        string += "pos_conj,pos_misc,pos_adj,pos_noun,pos_prep,pos_adv,pos_vrb,pos_wh,"
+        string += "beauty_score,bag_of_words_score\n"
+        return string
 
     def numerical_features(self):
         '''
@@ -154,10 +167,8 @@ def make_points():
             all_words = []
             essays = []
             csv_rows = list(csv.reader(f, delimiter = ','))
-            out_file = open('features_' + str(index) + '.csv','w')
             essay_tokens = []
             points = []
-            get_beauty_table()
             for row in csv_rows:
                 # currently performing tasks on essay set 3 only
                 if row[1] == str(3):
@@ -169,26 +180,10 @@ def make_points():
             values = Bag_of_Words(essay_tokens, all_words)
             for i in xrange(len(points)):
                 points[i].set_bag_of_words(values[i])
+            out_file = open('features_' + str(index) + '.csv','w')
+            out_file.write(points[0].get_label())
             for p in points:
                 out_file.write(str(p))
-
-def get_beauty_table():
-    #Get reference table
-    contenturl = "http://www.math.cornell.edu/~mec/2003-2004/cryptography/subs/frequencies.html"
-    soup = BeautifulSoup(urllib2.urlopen(contenturl).read())
-    global beauty_reference
-    table = soup.find("table")
-    rows = table.findAll('tr')
-    beauty_reference = {}
-    f = 0
-    for row in rows:
-            cols = row.findAll('td')
-            a,b,c,d,e = [c.text for c in cols]
-            if f:
-                    beauty_reference[d.encode('utf-8').lower()] = float(e.encode('utf-8'))
-            f = True
-
-
 
 def partition_essays():
     '''
