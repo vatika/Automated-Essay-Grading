@@ -2,6 +2,7 @@
 import csv
 import nltk
 import string
+import json
 
 from collections import Counter
 
@@ -14,10 +15,11 @@ from sklearn.metrics.pairwise import linear_kernel
 
 import enchant
 
-import urllib2
-from bs4 import BeautifulSoup
-
+'''
+    Globals for the feature extraction. Mostly holds constants.
+'''
 enchant_dict = enchant.Dict("en_US")
+stemmer = PorterStemmer()
 # http://www.math.cornell.edu/~mec/2003-2004/cryptography/subs/frequencies.html
 beauty_reference = {
     'a' : 8.12, 'b' : 1.49, 'c' : 2.71, 'd' : 4.32, 'e' : 12.02, 'f' : 2.30,
@@ -26,12 +28,13 @@ beauty_reference = {
     's' : 1.68, 't' : 9.10, 'u' : 2.88, 'v' : 1.11, 'w' : 2.09, 'x' : 0.17,
     'y' : 2.11, 'z' : 0.07,
 }
-stemmer = PorterStemmer()
 # http://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
 pos_classes = [ [ "CC","DT","EX","IN","MD","TO","UH","PDT","POS" ], [ "FW","CD","LS","RP","SYM" ], \
                 [ "JJ","JJR","JS" ], [ "NN","NNS","NNP", "NNPS" ], [ "PRP","PRP$" ], \
                 [ "RB","RBR","RBS" ], [ "VBD","VBG","VBN","VBP","VBZ" ], [ "WDT","WP","WP$","WRB" ],
               ]
+# http://crr.ugent.be/archives/806
+words_acq_age = json.load(open('aoa_values.json'))
 
 class Point:
     def __init__(self,essay_id,essay_set,essay_str,score):
@@ -56,7 +59,7 @@ class Point:
     def get_label(self):
         string = "id,set,human_score,sentence_count,word_count,avg_word_length,misspell_words,"
         string += "pos_conj,pos_misc,pos_adj,pos_noun,pos_prep,pos_adv,pos_vrb,pos_wh,"
-        string += "beauty_score,bag_of_words_score\n"
+        string += "beauty_score,vocabulory_score,maturity_score,bag_of_words_score\n"
         return string
 
     def numerical_features(self):
@@ -71,7 +74,7 @@ class Point:
         self.features.append(len([1 for token in self.tokens if enchant_dict.check(token) == False])) # Number of misspelled words
 
 
-    def beautiful_word_score(self):
+    def stylized_word_scores(self):
         words = stem_tokenize(self.essay_str.translate(None, string.punctuation).decode('utf-8'))
         self.beauty_score = 0
         for word in words:
@@ -83,6 +86,16 @@ class Point:
                     pass
             self.beauty_score += 1/s
         self.features.append(self.beauty_score)
+        self.maturity_score = 0
+        vocab = 0
+        for word in words:
+            lower_word = word.lower()
+            if lower_word in words_acq_age and len(lower_word) > 3:
+                self.maturity_score = self.maturity_score + float(words_acq_age[lower_word])
+                vocab += 1
+        self.maturity_score /= vocab
+        self.features.append(vocab)
+        self.features.append(self.maturity_score)
 
     def pos_features(self):
         '''
@@ -124,7 +137,7 @@ class Point:
         '''
         self.numerical_features()
         self.pos_features()
-        self.beautiful_word_score()
+        self.stylized_word_scores()
 
 def get_stem_tokens(tokens, stemmer):
     stemmed = []
