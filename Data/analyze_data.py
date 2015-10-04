@@ -5,13 +5,12 @@ import matplotlib.pyplot as plt
 data = pd.read_csv('features_3.csv', index_col=0)
 data.head()
 
-colnames = ['id', 'set', 'score', 'x', 'y','z']
+colnames = ['id', 'set', 'human_score', 'misspell_words']
 
 
 
-scores = list(data.score)
-x = list(data.x)
-y = list(data.y)
+scores = list(data.human_score)
+x = list(data.misspell_words)
 
-plt.plot(x,scores)
+plt.scatter(x, scores)
 plt.show()
