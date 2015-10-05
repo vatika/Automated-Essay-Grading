@@ -1,15 +1,21 @@
 # Copyright 2015 Abhijeet Kumar ,Anurag Ghosh, Varika Harlalka
 # Classification Techniques
 # Implemented ::  Linear Regression
-# To Implement :: SVM , Graph Diffusion,etc
+# Under Implementation :: SVR  , Cohen's Kappa
+# To Implement ::  Graph Diffusion,etc
 
 import numpy as np
 import csv
+import sklearn
+import nltk
+
+class SVR:
+    pass
 
 class Linear_Regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self,X,Y):
-        self.max_limit = 10000   # limit on total number  of iterations
+        self.max_limit = 100000   # limit on total number  of iterations
         self.eta = 0.0001;       # approximate value of eta works good
         self.X = X
         self.Y = Y
@@ -23,48 +29,88 @@ class Linear_Regression:
         s =  ' '.join(temp)
         return s
         
-        
     def calculate_cost(self):
         temp = np.matrix(self.Y-self.X.dot(self.theta))
         self.J = temp.T.dot(temp)
         
     def gradient_descent(self): 
         for i in range(self.max_limit):
-            #cost function
             self.calculate_cost()
-            #print J
-            #print theta
-            if self.J < 1:
-                break
             P = self.X.dot(self.theta)
-            # print np.size(P)
-            #theta update_step
-            self.theta = self.theta - (self.eta/self.m)*(((P-self.Y).T*self.X).T);
+            update = (self.eta/self.m)*(((P-self.Y).T*self.X).T)
+            if abs(max(update)) < 5*(self.eta/self.m):
+                break
+            self.theta = self.theta - update;
             
-        #print theta
-    def execute(self):
+    def predict(self,x):
+        return sum( x*self.theta)
+    
+    def execute(self,X_test,Y_test):
         self.gradient_descent();
+        P = np.zeros(len(Y_test))
+        for i in range(len(X_test)):
+            P[i] = self.predict(X_test[i])
+        P = np.round(P);
+        return Cohen_Kappa(Y_test,P)    
 
+def weighted_distance(x,y):
+    return 1/3*abs(x-y)
+
+def Cohen_Kappa(A,B):
+    data = []
+    for i in range(len(A)):
+        data.append(( 'original' , i , A.item(i) ))
+        data.append(( 'predicted', i , B[i] ))    
+    s = nltk.metrics.AnnotationTask(data=data,distance=weighted_distance)
+    return s.kappa()#(max_distance=1.0)
+#    result = np.zeros((c,c))
+#    W = np.array([0,1,2,3,1,0,1,2,2,1,0,1,3,2,1,0])
+#    for i in range(len(A)):
+#        j = A[i]
+#        k = B[i]
+#        result[j,k] = result[j,k]+1;
+#    a = result*W
+#    b = W
+#    return 1 - a/float(b);
 
 def data_manipulation():
     for i in range(3,4): #to change after feature extraction done for all sets
-        data = []
+        
+        # training data
+        train_data = []
         with open('./Data/features_'+str(i)+'.csv','r') as in_file:
              csv_content = list(csv.reader(in_file,delimiter=','))
              for row in csv_content:
-                data.append(row)
+                train_data.append(row)
         
-        data = data[1:]   #clip the header
-        data = np.matrix(data,dtype='float64')  
-        Y = data[:,2]     #actual_values
-        X = data[:,2:]    #actual_data with random bias units
-        m = np.size(X,axis=0)
-        X[:,0] = np.ones((m,1)) #bias units modified
+        train_data = train_data[1:]   #clip the header
+        train_data = np.matrix(train_data,dtype='float64')  
+        Y_train = train_data[:,2].copy()     #actual_values
+        X_train = train_data[:,2:].copy()    #actual_data with random bias units
+        m = np.size(X_train,axis=0)
+        X_train[:,0] = np.ones((m,1)) #bias units modified
         
+        #testing data
+        test_data = [] # for now both are same modify here to test data
+        with open('./Data/features_'+str(i)+'.csv','r') as in_file:
+             csv_content = list(csv.reader(in_file,delimiter=','))
+             for row in csv_content:
+                test_data.append(row)
+                
+        test_data = test_data[1:]   #clip the header
+        test_data = np.matrix(test_data,dtype='float64')
+        Y_test = test_data[:,2].copy()     #actual_values       
+        X_test = test_data[:,2:].copy()    #actual_data with random bias units
+        m = np.size(X_test,axis=0)
+        X_test[:,0] = np.ones((m,1)) #bias units modified
+        
+        #stroing the results for further use maybe(such as single value predictions) .......
         out_file = open('./classifier_weights/essay_set'+str(i)+'.csv','w')
         
-        L = Linear_Regression(X,Y)
-        L.execute()
+        #Linear Regression
+        L = Linear_Regression(X_train,Y_train)
+        cohen_kappa_result = L.execute(X_test,Y_test)
+        print cohen_kappa_result
         #other techniques coming soon
         
         writer = csv.writer(out_file,delimiter=',')
