@@ -1,4 +1,4 @@
-# Copyright 2015 Abhijeet Kumar ,Anurag Ghosh, Varika Harlalka
+# Copyright 2015 Abhijeet Kumar ,Anurag Ghosh, Vatika Harlalka
 # Classification Techniques
 # Implemented ::  Linear Regression
 # Under Implementation :: SVR  , Cohen's Kappa
