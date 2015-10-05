@@ -54,15 +54,16 @@ class Linear_Regression:
         return Cohen_Kappa(Y_test,P)    
 
 def weighted_distance(x,y):
-    return 1/3*abs(x-y)
+    return 1/float(4)*abs(x-y)
 
 def Cohen_Kappa(A,B):
     data = []
     for i in range(len(A)):
         data.append(( 'original' , i , A.item(i) ))
-        data.append(( 'predicted', i , B[i] ))    
+        data.append(( 'predicted', i , B[i] ))
+#    print data    
     s = nltk.metrics.AnnotationTask(data=data,distance=weighted_distance)
-    return s.kappa()#(max_distance=1.0)
+    return s.weighted_kappa()#(max_distance=1.0)
 #    result = np.zeros((c,c))
 #    W = np.array([0,1,2,3,1,0,1,2,2,1,0,1,3,2,1,0])
 #    for i in range(len(A)):
