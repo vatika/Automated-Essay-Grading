@@ -1,4 +1,4 @@
-# Copyright 2015 Abhijeet Kumar ,Anurag Ghosh, Varika Harlalka
+# Copyright 2015 Abhijeet Kumar ,Anurag Ghosh, Vatika Harlalka
 # Classification Techniques
 # Implemented ::  Linear Regression
 # To Implement :: SVM , Graph Diffusion,etc
@@ -29,6 +29,7 @@ class Linear_Regression:
         self.J = temp.T.dot(temp)
         
     def gradient_descent(self): 
+        j = 0
         for i in range(self.max_limit):
             #cost function
             self.calculate_cost()
@@ -39,8 +40,14 @@ class Linear_Regression:
             P = self.X.dot(self.theta)
             # print np.size(P)
             #theta update_step
-            self.theta = self.theta - (self.eta/self.m)*(((P-self.Y).T*self.X).T);
-            
+            np.seterr(all='raise')
+            j += 1
+            try:
+                self.theta = self.theta - (self.eta/self.m)*(((P-self.Y).T*self.X).T);
+            except:
+                print self.X
+                break
+        print j 
         #print theta
     def execute(self):
         self.gradient_descent();
