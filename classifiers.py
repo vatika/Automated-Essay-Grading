@@ -36,7 +36,7 @@ class Linear_Regression:
         for i in range(len(X_test)):
             P[i] = self.predict(X_test[i])
         P = np.round(P)
-        #take care of the fact that value greater than 0 is unaccepetable
+        #take care of the fact that value greater than 3 is unaccepetable
         for i in range(len(P)):
             if P[i] > 3:
                 P[i] = 3
