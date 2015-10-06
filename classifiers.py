@@ -15,14 +15,14 @@ class SVR:
 class Linear_Regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self,X,Y):
-        self.max_limit = 100000   # limit on total number  of iterations
-        self.eta = 0.0001;       # approximate value of eta works good
+        self.max_limit = 1000  # limit on total number  of iterations
+        self.eta = 0.00001;       # approximate value of eta works good
         self.X = X
         self.Y = Y
         #dimensions (m*d) of the training set
         self.d = np.size(self.X,axis=1)
         self.m = np.size(self.X,axis=0)
-        self.theta = np.zeros((self.d,1));
+        self.theta = np.zeros((self.d,1))
 
     def __str__(self):
         temp = ["%.10f" % x for x in self.theta]
@@ -38,6 +38,7 @@ class Linear_Regression:
             self.calculate_cost()
             P = self.X.dot(self.theta)
             update = (self.eta/self.m)*(((P-self.Y).T*self.X).T)
+            print update,i
             if abs(max(update)) < 5*(self.eta/self.m):
                 break
             self.theta = self.theta - update;
