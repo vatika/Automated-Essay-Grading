@@ -15,11 +15,8 @@ class SVR:
 class Linear_Regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self,X,Y):
-<<<<<<< HEAD
         self.max_limit = 100000   # limit on total number  of iterations
-=======
         self.max_limit = 1000  # limit on total number  of iterations
->>>>>>> e53d568f09f2ad02a52db9904a920c05ce0bba12
         self.eta = 0.00001;       # approximate value of eta works good
         self.X = X
         self.Y = Y
