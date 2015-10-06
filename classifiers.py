@@ -48,7 +48,7 @@ class Linear_Regression:
 
             
     def predict(self,x):
-        return sum( x*self.theta)
+        return min(3,sum( x*self.theta))
     
     def execute(self,X_test,Y_test):
         self.gradient_descent();
@@ -150,6 +150,20 @@ def quadratic_weighted_kappa(rater_a, rater_b, min_rating=None, max_rating=None)
             denominator += d * expected_count / num_scored_items
 
     return 1.0 - numerator / denominator
+
+def histogram(ratings, min_rating=None, max_rating=None):
+    """
+    Returns the counts of each type of rating that a rater made
+    """
+    if min_rating is None:
+        min_rating = min(ratings)
+    if max_rating is None:
+        max_rating = max(ratings)
+    num_ratings = int(max_rating - min_rating + 1)
+    hist_ratings = [0 for x in range(num_ratings)]
+    for r in ratings:
+        hist_ratings[r - min_rating] += 1
+    return hist_ratings
 
 
 
