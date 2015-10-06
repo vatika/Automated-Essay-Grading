@@ -31,10 +31,11 @@ beauty_reference = {
     'y' : 2.11, 'z' : 0.07,
 }
 # http://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
-pos_classes = [ [ "CC","DT","EX","IN","MD","TO","UH","PDT","POS" ], [ "FW","CD","LS","RP","SYM" ], \
-                [ "JJ","JJR","JS" ], [ "NN","NNS","NNP", "NNPS" ], [ "PRP","PRP$" ], \
-                [ "RB","RBR","RBS" ], [ "VBD","VBG","VBN","VBP","VBZ" ], [ "WDT","WP","WP$","WRB" ],
+pos_classes = [ ["CC"],["DT"],["EX"],["IN"],["MD"],["TO"],["UH"],["PDT"],["POS"],["FW"],["CD"],["LS"],["RP"],["SYM"], \
+                ["JJ"],["JJR"],["JS"],["NN"],["NNS"],["NNP"],["NNPS"],["PRP"],["PRP$" ], \
+                ["RB"],["RBR"],["RBS" ],["VBD"],["VBG"],["VBN"],["VBP"],["VBZ"], ["WDT"],["WP"],["WP$"],["WRB"],
               ]
+
 # http://crr.ugent.be/archives/806
 words_acq_age = json.load(open('aoa_values.json'))
 
@@ -63,7 +64,9 @@ class Point:
 
     def get_label(self):
         string = "id,set,human_score,sentence_count,word_count,avg_word_length,misspell_words,char_4,char_6,char_8,char_10,char_12,"
-        string += "mean_char,std_char,word_10,word_18,word_25,mean_word,std_word,pos_conj,pos_misc,pos_adj,pos_noun,pos_prep,pos_adv,pos_vrb,pos_wh,"
+        string += "mean_char,std_char,word_10,word_18,word_25,mean_word,std_word,"
+        for i in xrange(1,36):
+            string += "pos_" + str(i) + ","
         string += "beauty_score,vocabulory_score,maturity_score,bag_of_words_score\n"
         return string
 
@@ -115,8 +118,6 @@ class Point:
         mean =  sum(len_sentences)/float(len(sentences))
         self.features.append(mean)
         self.features.append(math.sqrt(sum([pow(x-mean,2) for x in len_sentences])/float(len(len_sentences))))
-
-            
 
     def stylized_word_scores(self):
         words = stem_tokenize(self.essay_str.translate(None, string.punctuation).decode('utf-8'))
