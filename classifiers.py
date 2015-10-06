@@ -13,49 +13,33 @@ import weighted_kappa as own_wp
 class SVR:
     pass
 
+
 class Linear_Regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
-    def __init__(self,X,Y):
-        self.max_limit = 100000   # limit on total number  of iterations
-        self.max_limit = 1000  # limit on total number  of iterations
-        self.eta = 0.00001;       # approximate value of eta works good
-        self.X = X
-        self.Y = Y
-        #dimensions (m*d) of the training set
-        self.d = np.size(self.X,axis=1)
-        self.m = np.size(self.X,axis=0)
-        self.theta = np.zeros((self.d,1))
+    def __init__(self):
+        self.L = sklearn.linear_model.LinearRegression(fit_intercept=True, normalize=True, copy_X=True)
 
     def __str__(self):
-        temp = ["%.10f" % x for x in self.theta]
-        s =  ' '.join(temp)
-        return s
+        return self.L.__str__();
 
-    def calculate_cost(self):
-        temp = np.matrix(self.Y-self.X.dot(self.theta))
-        self.J = temp.T.dot(temp)
+    def train(self,X_train,Y_train):
+        self.L.fit(X_train,Y_train)
 
-    def gradient_descent(self):
-        for i in range(self.max_limit):
-            self.calculate_cost()
-            P = self.X.dot(self.theta)
-            update = (self.eta/self.m)*(((P-self.Y).T*self.X).T)
-            #print update,i
-            if abs(max(update)) < 5*(self.eta/self.m):
-                break
-            np.seterr(all="raise")
-            self.theta = self.theta - update;
+    #prediction for a single value only to be used later(maybe)
+    def predict(self,X_test):
+        return self.L.predict(X_test)
 
 
-    def predict(self,x):
-        return min(3,sum( x*self.theta))
-
-    def execute(self,X_test,Y_test):
-        self.gradient_descent();
+    def find_kappa(self,X_test,Y_test):
+        P = self.L.predict(X_test)
         P = np.zeros(len(Y_test))
         for i in range(len(X_test)):
             P[i] = self.predict(X_test[i])
-        P = np.round(P);
+        P = np.round(P)
+        #take care of the fact that value greater than 0 is unaccepetable
+        for i in range(len(P)):
+            if P[i] > 3:
+                P[i] = 3
         return own_wp.quadratic_weighted_kappa(Y_test,P, 0, 3)
 
 def data_manipulation():
@@ -93,8 +77,10 @@ def data_manipulation():
         out_file = open('./classifier_weights/essay_set'+str(i)+'.csv','w')
 
         #Linear Regression
-        L = Linear_Regression(X_train,Y_train)
-        cohen_kappa_result = L.execute(X_test,Y_test)
+        L = Linear_Regression()
+        L.train(X_train,Y_train)
+        cohen_kappa_result = L.find_kappa(X_test,Y_test)
+        #cohen_kappa_result = L.execute(X_test,Y_test)
         print cohen_kappa_result
         #other techniques coming soon
 
