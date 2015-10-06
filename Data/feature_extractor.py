@@ -62,8 +62,8 @@ class Point:
         return ','.join([self.essay_id, self.essay_set, str(self.score), feature_str, str(self.bag_of_words)]) + '\n'
 
     def get_label(self):
-        string = "id,set,human_score,sentence_count,word_count,avg_word_length,misspell_words,char_4,char_6,char_8,char_10,char_12"
-        string += "mean_char,std_char,pos_conj,pos_misc,pos_adj,pos_noun,pos_prep,pos_adv,pos_vrb,pos_wh,"
+        string = "id,set,human_score,sentence_count,word_count,avg_word_length,misspell_words,char_4,char_6,char_8,char_10,char_12,"
+        string += "mean_char,std_char,word_10,word_18,word_25,mean_word,std_word,pos_conj,pos_misc,pos_adj,pos_noun,pos_prep,pos_adv,pos_vrb,pos_wh,"
         string += "beauty_score,vocabulory_score,maturity_score,bag_of_words_score\n"
         return string
 
@@ -71,7 +71,8 @@ class Point:
         '''
         numerical features as number of tokens , sentences , misspells, number of words of different character lengths, average word length, standard devaiation of word length
         '''
-        self.features.append(len(self.essay_str.split('.'))) # Number of sentences
+        sentences = self.essay_str.split('.')
+        self.features.append(len(sentences)) # Number of sentences
         no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
         self.tokens = nltk.word_tokenize(no_punctuation) # Yes, A new self variable. Sorry.
         self.features.append(len(self.tokens)) # Number of tokens
@@ -98,7 +99,24 @@ class Point:
         mean =  sum(len_words)/float(len(self.tokens))
         self.features.append(mean)
         self.features.append(math.sqrt(sum([pow(x-mean,2) for x in len_words])/float(len(len_words)-1)))
-        
+        stat_sentences = [0, 0, 0] #Number of sentences with word length > 10, 18, 25
+        len_sentences = []
+        for sentence in sentences:
+            n_words = len(nltk.word_tokenize(sentence.lower().translate(None, string.punctuation)))
+            len_sentences.append(n_words)
+            if n_words > 10:
+                if n_words > 18:
+                    if n_words > 25:
+                        stat_sentences[2] += 1
+                    stat_sentences[1] += 1
+                stat_sentences[0] += 1
+        for stat in stat_sentences:
+            self.features.append(stat)
+        mean =  sum(len_sentences)/float(len(sentences))
+        self.features.append(mean)
+        self.features.append(math.sqrt(sum([pow(x-mean,2) for x in len_sentences])/float(len(len_sentences))))
+
+            
 
     def stylized_word_scores(self):
         words = stem_tokenize(self.essay_str.translate(None, string.punctuation).decode('utf-8'))
