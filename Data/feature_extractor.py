@@ -15,6 +15,8 @@ from sklearn.metrics.pairwise import linear_kernel
 
 import enchant
 
+import math
+
 '''
     Globals for the feature extraction. Mostly holds constants.
 '''
@@ -48,6 +50,9 @@ class Point:
         self.features = []
         self.all_features()
         self.bag_of_words = 0
+        self.stat_sentences = []
+        self.std_nword = 0
+        self.mean_nword = 0
 
     def __str__(self):
         '''
@@ -57,14 +62,14 @@ class Point:
         return ','.join([self.essay_id, self.essay_set, str(self.score), feature_str, str(self.bag_of_words)]) + '\n'
 
     def get_label(self):
-        string = "id,set,human_score,sentence_count,word_count,avg_word_length,misspell_words,"
-        string += "pos_conj,pos_misc,pos_adj,pos_noun,pos_prep,pos_adv,pos_vrb,pos_wh,"
+        string = "id,set,human_score,sentence_count,word_count,avg_word_length,misspell_words,char_4,char_6,char_8,char_10,char_12"
+        string += "mean_char,std_char,pos_conj,pos_misc,pos_adj,pos_noun,pos_prep,pos_adv,pos_vrb,pos_wh,"
         string += "beauty_score,vocabulory_score,maturity_score,bag_of_words_score\n"
         return string
 
     def numerical_features(self):
         '''
-        numerical features as number of tokens , sentences , misspells
+        numerical features as number of tokens , sentences , misspells, number of words of different character lengths, average word length, standard devaiation of word length
         '''
         self.features.append(len(self.essay_str.split('.'))) # Number of sentences
         no_punctuation = self.essay_str.lower().translate(None, string.punctuation)
@@ -73,6 +78,27 @@ class Point:
         self.features.append((float(len(''.join(self.tokens)))/float(len(self.tokens)))*10) # Average size of token * 10
         self.features.append(len([1 for token in self.tokens if enchant_dict.check(token) == False])) # Number of misspelled words
 
+        len_words = []
+        stat_words = [0,0,0,0,0] #Number of words with character length > 4,6,8,10,12 respectively
+        for token in self.tokens:
+            l = len(token)
+            len_words.append(l)
+            if l > 4:
+                if l > 6:
+                    if l > 8:
+                        if l > 10:
+                            if l > 12:
+                                stat_words[4] += 1
+                            stat_words[3] += 1
+                        stat_words[2] += 1
+                    stat_words[1] += 1
+                stat_words[0] += 1
+        for stat in stat_words:
+            self.features.append(stat)
+        mean =  sum(len_words)/float(len(self.tokens))
+        self.features.append(mean)
+        self.features.append(math.sqrt(sum([pow(x-mean,2) for x in len_words])/float(len(len_words)-1)))
+        
 
     def stylized_word_scores(self):
         words = stem_tokenize(self.essay_str.translate(None, string.punctuation).decode('utf-8'))
