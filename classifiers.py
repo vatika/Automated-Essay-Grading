@@ -86,20 +86,19 @@ def confusion_matrix(rater_a, rater_b, min_rating=None, max_rating=None):
     Returns the confusion matrix between rater's ratings
     """
 #    print rater_a.flatten()
-    k = [item for sublist in rater_a for item in sublist]
-    print k
-    print rater_b
-    sys.exit()
     assert(len(rater_a) == len(rater_b))
     if min_rating is None:
         min_rating = min(rater_a + rater_b)
     if max_rating is None:
         max_rating = max(rater_a + rater_b)
     num_ratings = int(max_rating - min_rating + 1)
+
     conf_mat = [[0 for i in range(num_ratings)] for j in range(num_ratings)]
     for a, b in zip(rater_a, rater_b):
-        print a,b,min_rating
-        conf_mat[a - min_rating][b - min_rating] += 1
+        try:
+            conf_mat[a[0] - min_rating][b - min_rating] += 1
+        except:
+            print a[0],b,min_rating
     return conf_mat
 
 
@@ -123,14 +122,7 @@ def quadratic_weighted_kappa(rater_a, rater_b, min_rating=None, max_rating=None)
     rating
     """
     k= rater_a.flatten()
-    for i in k:
-        for j in i:
-            print j
-#    print rater_b
-    sys.exit()
-    for k in rater_a:
-        print k[0]
-    sys.exit()
+
     rater_a = np.array(rater_a, dtype=int)
     rater_b = np.array(rater_b, dtype=int)
     assert(len(rater_a) == len(rater_b))
