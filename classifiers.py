@@ -11,8 +11,34 @@ import nltk
 import weighted_kappa as own_wp
 
 class SVR:
-    pass
+    ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
+    def __init__(self):
+        self.L = sklearn.svm.SVR(kernel='rbf', degree=3, gamma=0.1)
 
+    def __str__(self):
+        return self.L.__str__();
+
+    def train(self,X_train,Y_train):
+        temp = []
+        for i in range(len(Y_train)):
+            temp.append(Y_train.item(i))
+        self.L.fit(X_train,temp)
+
+    #prediction for a single value only to be used later(maybe)
+    def predict(self,X_test):
+        return self.L.predict(X_test)
+
+    def find_kappa(self,X_test,Y_test):
+        P = self.L.predict(X_test)
+        P = np.zeros(len(Y_test))
+        for i in range(len(X_test)):
+            P[i] = self.predict(X_test[i])
+        P = np.round(P)
+        #take care of the fact that value greater than 3 is unaccepetable
+        for i in range(len(P)):
+            if P[i] > 3:
+                P[i] = 3
+        return own_wp.quadratic_weighted_kappa(Y_test,P, 0, 3)
 
 class Linear_Regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
@@ -80,8 +106,14 @@ def data_manipulation():
         L = Linear_Regression()
         L.train(X_train,Y_train)
         cohen_kappa_result = L.find_kappa(X_test,Y_test)
-        #cohen_kappa_result = L.execute(X_test,Y_test)
-        print cohen_kappa_result
+        print 'Linear Regression = ' +str(cohen_kappa_result)
+        
+        #SVR
+        M = SVR()
+        M.train(X_train,Y_train)
+        cohen_kappa_result = M.find_kappa(X_test,Y_test)
+        print 'SVR = '+str(cohen_kappa_result)
+        
         #other techniques coming soon
 
         writer = csv.writer(out_file,delimiter=',')
