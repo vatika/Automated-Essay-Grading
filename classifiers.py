@@ -98,7 +98,7 @@ def confusion_matrix(rater_a, rater_b, min_rating=None, max_rating=None):
         try:
             conf_mat[a[0] - min_rating][b - min_rating] += 1
         except:
-            print a[0],b,min_rating
+            print "human score = " + str(a[0]) + " machine score = " + str(b)
     return conf_mat
 
 
