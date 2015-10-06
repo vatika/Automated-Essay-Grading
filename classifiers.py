@@ -58,28 +58,6 @@ class Linear_Regression:
         P = np.round(P);
         return quadratic_weighted_kappa(Y_test,P, 0, 3)    
 
-def weighted_distance(x,y):
-    return abs(x-y)
-
-def Cohen_Kappa(A,B):
-    data = []
-    for i in range(len(A)):
-        data.append(( 'original' , i , A.item(i) ))
-        data.append(( 'predicted', i , B[i] ))
-#    print data    
-    s = nltk.metrics.AnnotationTask(data=data,distance=weighted_distance)
-    return s.weighted_kappa()#(max_distance=1.0)
-#    result = np.zeros((c,c))
-#    W = np.array([0,1,2,3,1,0,1,2,2,1,0,1,3,2,1,0])
-#    for i in range(len(A)):
-#        j = A[i]
-#        k = B[i]
-#        result[j,k] = result[j,k]+1;
-#    a = result*W
-#    b = W
-#    return 1 - a/float(b);
-
-
 
 def confusion_matrix(rater_a, rater_b, min_rating=None, max_rating=None):
     """
