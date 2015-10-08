@@ -10,9 +10,11 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import numpy as np
     import sklearn
+    from sklearn.cross_validation import train_test_split
     import csv
     import nltk
     import weighted_kappa as own_wp
+    import random
 
 
 class support_vector_regression:
@@ -59,6 +61,7 @@ class linear_regression:
     #prediction for a single value only to be used later(maybe)
     def predict(self,X_test):
         return self.L.predict(X_test)
+
     def find_kappa(self,X_test,Y_test):
         P = self.L.predict(X_test)
         P = np.zeros(len(Y_test))
@@ -76,18 +79,27 @@ class k_fold_cross_validation:
         The class will take an statistical class and training set and parameter k.
         The set will be divided wrt to k and cross validated using the statistical
         class provided.
+        The statistical class should have two methods and no constructor args -
+        method train(training_x, training_y)
+        method find_kappa(test_x,test_y)
     '''
     def __init__(self,k,stat_class,x_train,y_train):
-        self.k = k
+        self.k_cross = k
         self.stat_class = stat_class
         self.x_train = x_train
         self.y_train = y_train
 
     def execute(self):
-        stat_obj = self.stat_class() # reflection bitches
-        stat_obj.train(self.x_train,self.y_train)
-        cohen_kappa_result = stat_obj.find_kappa(self.x_train,self.y_train)
-        print str(stat_obj) + str(cohen_kappa_result)
+        values = []
+        for i in xrange(0,self.k_cross):
+            ## TODO: there is some problem in the next line with numpy matrix.
+            ## TODO: fix required immediate. @anuragxel
+            x_train, x_test, y_train, y_test = train_test_split(self.x_train, self.y_train, test_size=1/float(self.k_cross), random_state=random.randint(0,100))
+            stat_obj = self.stat_class() # reflection bitches
+            stat_obj.train(x_train,y_train)
+            cohen_kappa_rating = stat_obj.find_kappa(x_test,y_test)
+            values.append(cohen_kappa_rating)
+        print str(sum(values)/self.k_cross)
 
 
 def data_manipulation():
@@ -105,7 +117,7 @@ def data_manipulation():
         X_train = train_data[:,2:].copy()    #actual_data with random bias units
         m = np.size(X_train,axis=0)
         X_train[:,0] = np.ones((m,1)) #bias units modified
-
+        
         cross_valid_k = 5
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train)
         linear_k_cross.execute()
