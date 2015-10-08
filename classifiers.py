@@ -6,8 +6,6 @@
 
 import warnings
 
-import skll.metrics
-
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import numpy as np
@@ -22,7 +20,7 @@ with warnings.catch_warnings():
 class support_vector_regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self):
-        self.L = sklearn.svm.SVR(kernel='rbf', degree=3, gamma=0.1)
+        self.L = sklearn.svm.SVR(kernel='rbf', degree=3, gamma=0.00005)
 
     def __str__(self):
         return self.L.__str__();
@@ -31,11 +29,13 @@ class support_vector_regression:
         temp = []
         for i in range(len(Y_train)):
             temp.append(Y_train.item(i))
+        #print temp
         self.L.fit(X_train,temp)
 
-    #prediction for a single value only to be used later(maybe)
     def predict(self,X_test):
-        return self.L.predict(X_test)
+        d = self.L.predict(X_test)
+        #print d
+        return d
 
     def find_kappa(self,X_test,Y_test):
         P = self.L.predict(X_test)
@@ -85,7 +85,7 @@ class k_fold_cross_validation:
         method find_kappa(test_x,test_y)
     '''
     def __init__(self,k,stat_class,x_train,y_train):
-        self.k_cross = k
+        self.k_cross = float(k)
         self.stat_class = stat_class
         self.x_train = x_train
         self.y_train = y_train
@@ -93,6 +93,7 @@ class k_fold_cross_validation:
 
     def execute(self):
         kf = KFold(len(self.x_train), n_folds=self.k_cross)
+        own_kappa = []
         for train_idx, test_idx in kf:
             x_train, x_test = self.x_train[train_idx], self.x_train[test_idx]
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
@@ -104,8 +105,9 @@ class k_fold_cross_validation:
                 if val > 3: val = 3
                 if val < 0: val = 0
                 y_pred[i] = [val]
+            #print y_pred
             y_pred = np.matrix(y_pred)
-            cohen_kappa_rating = skll.metrics.kappa(y_test,y_pred)
+            cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,0,3)
             self.values.append(cohen_kappa_rating)
         print str(sum(self.values)/self.k_cross)
 
@@ -128,8 +130,10 @@ def data_manipulation():
 
         cross_valid_k = 5
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train)
+        print "linear_regression :\t\t\t\t\t",
         linear_k_cross.execute()
         svr_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_regression,X_train,Y_train)
+        print "support_vector_regression :\t\t\t\t",
         svr_k_cross.execute()
 
 if __name__=='__main__':
