@@ -68,5 +68,9 @@ def histogram(ratings, min_rating=None, max_rating=None):
     num_ratings = int(max_rating - min_rating + 1)
     hist_ratings = [0 for x in range(num_ratings)]
     for r in ratings:
-        hist_ratings[r - min_rating] += 1
+        try:
+            hist_ratings[r - min_rating] += 1
+        except:
+            hist_ratings[r[0] - min_rating] += 1
+
     return hist_ratings
