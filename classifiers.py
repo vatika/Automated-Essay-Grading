@@ -6,11 +6,13 @@
 
 import warnings
 
+import skll.metrics
+
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore",category=DeprecationWarning)
     import numpy as np
     import sklearn
-    from sklearn.cross_validation import train_test_split
+    from sklearn.cross_validation import KFold
     import csv
     import nltk
     import weighted_kappa as own_wp
@@ -58,9 +60,8 @@ class linear_regression:
     def train(self,X_train,Y_train):
         self.L.fit(X_train,Y_train)
 
-    #prediction for a single value only to be used later(maybe)
     def predict(self,X_test):
-        return self.L.predict(X_test)
+        return self.L.predict(X_test)[0][0]
 
     def find_kappa(self,X_test,Y_test):
         P = self.L.predict(X_test)
@@ -88,18 +89,25 @@ class k_fold_cross_validation:
         self.stat_class = stat_class
         self.x_train = x_train
         self.y_train = y_train
+        self.values = []
 
     def execute(self):
-        values = []
-        for i in xrange(0,self.k_cross):
-            ## TODO: there is some problem in the next line with numpy matrix.
-            ## TODO: fix required immediate. @anuragxel
-            x_train, x_test, y_train, y_test = train_test_split(self.x_train, self.y_train, test_size=1/float(self.k_cross), random_state=random.randint(0,100))
+        kf = KFold(len(self.x_train), n_folds=self.k_cross)
+        for train_idx, test_idx in kf:
+            x_train, x_test = self.x_train[train_idx], self.x_train[test_idx]
+            y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
             stat_obj = self.stat_class() # reflection bitches
             stat_obj.train(x_train,y_train)
-            cohen_kappa_rating = stat_obj.find_kappa(x_test,y_test)
-            values.append(cohen_kappa_rating)
-        print str(sum(values)/self.k_cross)
+            y_pred = [ 0 for i in xrange(len(y_test))]
+            for i in range(len(x_test)):
+                val = int(np.round(stat_obj.predict(x_test[i])))
+                if val > 3: val = 3
+                if val < 0: val = 0
+                y_pred[i] = [val]
+            y_pred = np.matrix(y_pred)
+            cohen_kappa_rating = skll.metrics.kappa(y_test,y_pred)
+            self.values.append(cohen_kappa_rating)
+        print str(sum(self.values)/self.k_cross)
 
 
 def data_manipulation():
@@ -117,7 +125,7 @@ def data_manipulation():
         X_train = train_data[:,2:].copy()    #actual_data with random bias units
         m = np.size(X_train,axis=0)
         X_train[:,0] = np.ones((m,1)) #bias units modified
-        
+
         cross_valid_k = 5
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train)
         linear_k_cross.execute()
