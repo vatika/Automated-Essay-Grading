@@ -4,13 +4,18 @@
 # Under Implementation :: SVR  , Cohen's Kappa
 # To Implement ::  Graph Diffusion,etc
 
-import numpy as np
-import csv
-import sklearn
-import nltk
-import weighted_kappa as own_wp
+import warnings
 
-class SVR:
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=DeprecationWarning)
+    import numpy as np
+    import sklearn
+    import csv
+    import nltk
+    import weighted_kappa as own_wp
+
+
+class support_vector_regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self):
         self.L = sklearn.svm.SVR(kernel='rbf', degree=3, gamma=0.1)
@@ -40,7 +45,7 @@ class SVR:
                 P[i] = 3
         return own_wp.quadratic_weighted_kappa(Y_test,P, 0, 3)
 
-class Linear_Regression:
+class linear_regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self):
         self.L = sklearn.linear_model.LinearRegression(fit_intercept=True, normalize=True, copy_X=True)
@@ -54,8 +59,6 @@ class Linear_Regression:
     #prediction for a single value only to be used later(maybe)
     def predict(self,X_test):
         return self.L.predict(X_test)
-
-
     def find_kappa(self,X_test,Y_test):
         P = self.L.predict(X_test)
         P = np.zeros(len(Y_test))
@@ -68,9 +71,27 @@ class Linear_Regression:
                 P[i] = 3
         return own_wp.quadratic_weighted_kappa(Y_test,P, 0, 3)
 
+class k_fold_cross_validation:
+    '''
+        The class will take an statistical class and training set and parameter k.
+        The set will be divided wrt to k and cross validated using the statistical
+        class provided.
+    '''
+    def __init__(self,k,stat_class,x_train,y_train):
+        self.k = k
+        self.stat_class = stat_class
+        self.x_train = x_train
+        self.y_train = y_train
+
+    def execute(self):
+        stat_obj = self.stat_class() # reflection bitches
+        stat_obj.train(self.x_train,self.y_train)
+        cohen_kappa_result = stat_obj.find_kappa(self.x_train,self.y_train)
+        print str(stat_obj) + str(cohen_kappa_result)
+
+
 def data_manipulation():
     for i in range(3,4): #to change after feature extraction done for all sets
-
         # training data
         train_data = []
         with open('./Data/features_'+str(i)+'.csv','r') as in_file:
@@ -85,40 +106,11 @@ def data_manipulation():
         m = np.size(X_train,axis=0)
         X_train[:,0] = np.ones((m,1)) #bias units modified
 
-        #testing data
-        test_data = [] # for now both are same modify here to test data
-        with open('./Data/features_'+str(i)+'.csv','r') as in_file:
-             csv_content = list(csv.reader(in_file,delimiter=','))
-             for row in csv_content:
-                test_data.append(row)
-
-        test_data = test_data[1:]   #clip the header
-        test_data = np.matrix(test_data,dtype='float64')
-        Y_test = test_data[:,2].copy()     #actual_values
-        X_test = test_data[:,2:].copy()    #actual_data with random bias units
-        m = np.size(X_test,axis=0)
-        X_test[:,0] = np.ones((m,1)) #bias units modified
-
-        #stroing the results for further use maybe(such as single value predictions) .......
-        out_file = open('./classifier_weights/essay_set'+str(i)+'.csv','w')
-
-        #Linear Regression
-        L = Linear_Regression()
-        L.train(X_train,Y_train)
-        cohen_kappa_result = L.find_kappa(X_test,Y_test)
-        print 'Linear Regression = ' +str(cohen_kappa_result)
-        
-        #SVR
-        M = SVR()
-        M.train(X_train,Y_train)
-        cohen_kappa_result = M.find_kappa(X_test,Y_test)
-        print 'SVR = '+str(cohen_kappa_result)
-        
-        #other techniques coming soon
-
-        writer = csv.writer(out_file,delimiter=',')
-        writer.writerows([str(L).split()])
-        out_file.close();
+        cross_valid_k = 5
+        linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train)
+        linear_k_cross.execute()
+        svr_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_regression,X_train,Y_train)
+        svr_k_cross.execute()
 
 if __name__=='__main__':
     data_manipulation();
