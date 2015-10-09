@@ -8,7 +8,6 @@ def confusion_matrix(rater_a, rater_b, min_rating=None, max_rating=None):
     """
     Returns the confusion matrix between rater's ratings
     """
-#    print rater_a.flatten()
     assert(len(rater_a) == len(rater_b))
     if min_rating is None:
         min_rating = min(rater_a + rater_b)
@@ -19,7 +18,7 @@ def confusion_matrix(rater_a, rater_b, min_rating=None, max_rating=None):
     conf_mat = [[0 for i in range(num_ratings)] for j in range(num_ratings)]
     for a, b in zip(rater_a, rater_b):
         try:
-            conf_mat[a[0] - min_rating][b - min_rating] += 1
+            conf_mat[a[0] - min_rating][b[0] - min_rating] += 1
         except:
             print "human score = " + str(a[0]) + " machine score = " + str(b)
     return conf_mat
