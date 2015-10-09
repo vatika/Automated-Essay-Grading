@@ -16,11 +16,10 @@ with warnings.catch_warnings():
     import weighted_kappa as own_wp
     import random
 
-
 class support_vector_regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self):
-        self.L = sklearn.svm.SVR(kernel='rbf', degree=3, gamma=0.00005)
+        self.L = sklearn.svm.SVR(kernel='rbf', degree=3, gamma=0.000062)
 
     def __str__(self):
         return self.L.__str__();
@@ -37,18 +36,6 @@ class support_vector_regression:
         #print d
         return d
 
-    def find_kappa(self,X_test,Y_test):
-        P = self.L.predict(X_test)
-        P = np.zeros(len(Y_test))
-        for i in range(len(X_test)):
-            P[i] = self.predict(X_test[i])
-        P = np.round(P)
-        #take care of the fact that value greater than 3 is unaccepetable
-        for i in range(len(P)):
-            if P[i] > 3:
-                P[i] = 3
-        return own_wp.quadratic_weighted_kappa(Y_test,P, 0, 3)
-
 class linear_regression:
     ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self):
@@ -63,18 +50,6 @@ class linear_regression:
     def predict(self,X_test):
         return self.L.predict(X_test)[0][0]
 
-    def find_kappa(self,X_test,Y_test):
-        P = self.L.predict(X_test)
-        P = np.zeros(len(Y_test))
-        for i in range(len(X_test)):
-            P[i] = self.predict(X_test[i])
-        P = np.round(P)
-        #take care of the fact that value greater than 3 is unaccepetable
-        for i in range(len(P)):
-            if P[i] > 3:
-                P[i] = 3
-        return own_wp.quadratic_weighted_kappa(Y_test,P, 0, 3)
-
 class k_fold_cross_validation:
     '''
         The class will take an statistical class and training set and parameter k.
@@ -82,7 +57,7 @@ class k_fold_cross_validation:
         class provided.
         The statistical class should have two methods and no constructor args -
         method train(training_x, training_y)
-        method find_kappa(test_x,test_y)
+        method predict(x_test_val)
     '''
     def __init__(self,k,stat_class,x_train,y_train):
         self.k_cross = float(k)
@@ -105,7 +80,6 @@ class k_fold_cross_validation:
                 if val > 3: val = 3
                 if val < 0: val = 0
                 y_pred[i] = [val]
-            #print y_pred
             y_pred = np.matrix(y_pred)
             cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,0,3)
             self.values.append(cohen_kappa_rating)
@@ -127,7 +101,6 @@ def data_manipulation():
         X_train = train_data[:,2:].copy()    #actual_data with random bias units
         m = np.size(X_train,axis=0)
         X_train[:,0] = np.ones((m,1)) #bias units modified
-
         cross_valid_k = 5
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train)
         print "linear_regression :\t\t\t\t\t",
