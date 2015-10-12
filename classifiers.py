@@ -21,7 +21,6 @@ with warnings.catch_warnings():
     import random
 
 class meta_classifier(object):
-    ''' all symbols used here are a generic reresentation used in support vector regression algorithms'''
     def __init__(self, learner):
         self.L = learner
 
@@ -55,7 +54,6 @@ class decision_tree_classifier(meta_classifier):
         super(self.__class__, self).__init__(DecisionTreeClassifier(criterion='entropy'))
 
 class linear_regression:
-    ''' all symbols used here are a generic reresentation used in linear regression algorithms'''
     def __init__(self):
         self.L = LinearRegression(fit_intercept=True, normalize=True, copy_X=True)
 
@@ -103,7 +101,7 @@ class k_fold_cross_validation:
             y_pred = np.matrix(y_pred)
             cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,self.range_min,self.range_max)
             self.values.append(cohen_kappa_rating)
-        print str(sum(self.values)/self.k_cross)
+        return str(sum(self.values)/self.k_cross)
 
 
 def data_manipulation():
@@ -132,19 +130,19 @@ def data_manipulation():
             range_max = 4
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train,range_min,range_max)
         print str(i) + " linear_regression :\t\t\t\t\t",
-        linear_k_cross.execute()
+        print linear_k_cross.execute()
         svr_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_regression,X_train,Y_train,range_min, range_max)
         print str(i) + " support_vector_regression :\t\t\t\t",
-        svr_k_cross.execute()
+        print svr_k_cross.execute()
         svm_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_machine,X_train,Y_train, range_min, range_max)
         print str(i) + " support_vector_machine :\t\t\t\t",
-        svm_k_cross.execute()
+        print svm_k_cross.execute()
         kernel_regress_k_cross = k_fold_cross_validation(cross_valid_k,kernel_ridge_regression,X_train,Y_train, range_min, range_max)
         print str(i) + " kernel_ridge_regression :\t\t\t\t",
-        kernel_regress_k_cross.execute()
+        print kernel_regress_k_cross.execute()
         decision_class_k_cross = k_fold_cross_validation(cross_valid_k,decision_tree_classifier,X_train,Y_train, range_min, range_max)
         print str(i) + " decision_tree_classifier :\t\t\t\t",
-        decision_class_k_cross.execute()
+        print decision_class_k_cross.execute()
 
 if __name__=='__main__':
     data_manipulation();
