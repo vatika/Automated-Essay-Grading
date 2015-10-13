@@ -1,7 +1,6 @@
 # Copyright 2015 Abhijeet Kumar ,Anurag Ghosh, Vatika Harlalka
 # Classification Techniques
-# Implemented ::  Linear Regression
-# Under Implementation :: SVR  , Cohen's Kappa
+# Implemented ::  Linear Regression, SVR, Cohen's Kappa
 # To Implement ::  Graph Diffusion,etc
 
 import warnings
@@ -12,7 +11,9 @@ with warnings.catch_warnings():
     import sklearn
     from sklearn.cross_validation import KFold
     from sklearn.svm import SVR, SVC
-    from sklearn.linear_model import LinearRegression
+    from sklearn.pipeline import Pipeline
+    from sklearn.neural_network import BernoulliRBM
+    from sklearn.linear_model import LinearRegression, LogisticRegression
     from sklearn.kernel_ridge import KernelRidge
     from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, ExtraTreeClassifier
     import csv
@@ -20,12 +21,12 @@ with warnings.catch_warnings():
     import weighted_kappa as own_wp
     import random
 
-class meta_classifier(object):
+class meta_non_linear(object):
     def __init__(self, learner):
         self.L = learner
 
     def __str__(self):
-        return self.L.__str__();
+        return self.L.__str__()
 
     def train(self,X_train,Y_train):
         temp = []
@@ -37,34 +38,49 @@ class meta_classifier(object):
         d = self.L.predict(X_test)
         return d
 
-class support_vector_regression(meta_classifier):
+class support_vector_regression(meta_non_linear):
     def __init__(self):
         super(self.__class__, self).__init__(SVR(kernel='rbf', gamma=0.00003))
 
-class kernel_ridge_regression(meta_classifier):
+class kernel_ridge_regression(meta_non_linear):
     def __init__(self):
         super(self.__class__, self).__init__(KernelRidge(kernel='rbf', gamma=0.00003, alpha=0.625)) # alpha = 1/(2*C)
 
-class support_vector_machine(meta_classifier):
+class support_vector_machine(meta_non_linear):
     def __init__(self):
         super(self.__class__, self).__init__(SVC(kernel='rbf', gamma=0.0004, C=0.8))
 
-class decision_tree_classifier(meta_classifier):
+class decision_tree_classifier(meta_non_linear):
     def __init__(self):
         super(self.__class__, self).__init__(DecisionTreeClassifier(criterion='entropy'))
 
-class linear_regression:
-    def __init__(self):
-        self.L = LinearRegression(fit_intercept=True, normalize=True, copy_X=True)
+class meta_linear(object):
+    def __init__(self, learner):
+        self.L = learner
 
     def __str__(self):
-        return self.L.__str__();
+        return self.L.__str__()
 
     def train(self,X_train,Y_train):
         self.L.fit(X_train,Y_train)
 
     def predict(self,X_test):
-        return self.L.predict(X_test)[0][0]
+        return self.L.predict(X_test)
+
+class linear_regression(meta_linear):
+    def __init__(self):
+        super(self.__class__, self).__init__(LinearRegression(fit_intercept=True, normalize=True, copy_X=True))
+
+class logistic_regression(meta_linear):
+    def __init__(self):
+        super(self.__class__, self).__init__(LogisticRegression(penalty='l2', dual=False, C=0.8, fit_intercept=True, solver='lbfgs', multi_class='multinomial'))
+
+# TODO: Tweak the hyperparameters
+class neural_logistic_pipeline(meta_linear):
+    def __init__(self):
+        self.logistic = LogisticRegression(penalty='l2', dual=False, C=0.8, fit_intercept=True, solver='lbfgs', multi_class='multinomial')
+        self.rbm = BernoulliRBM(learning_rate=0.006, n_iter=10, n_components=100)
+        super(self.__class__, self).__init__(Pipeline(steps=[('rbm', self.rbm), ('logistic', self.logistic)]))
 
 class k_fold_cross_validation:
     '''
@@ -105,6 +121,13 @@ class k_fold_cross_validation:
 
 
 def data_manipulation():
+    linear_accuracy = []
+    logistic_accuracy = []
+    svr_accuracy = []
+    svm_accuracy = []
+    kernel_regress_accuracy = []
+    decision_tree_accuracy = []
+    #neural_pipeline = []
     for i in [1,3,4,5,6]: #to change after feature extraction done for all sets
         # training data
         train_data = []
@@ -129,20 +152,26 @@ def data_manipulation():
         elif i == 5 or i == 6:
             range_max = 4
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train,range_min,range_max)
-        print str(i) + " linear_regression :\t\t\t\t\t",
-        print linear_k_cross.execute()
-        svr_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_regression,X_train,Y_train,range_min, range_max)
-        print str(i) + " support_vector_regression :\t\t\t\t",
-        print svr_k_cross.execute()
-        svm_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_machine,X_train,Y_train, range_min, range_max)
-        print str(i) + " support_vector_machine :\t\t\t\t",
-        print svm_k_cross.execute()
-        kernel_regress_k_cross = k_fold_cross_validation(cross_valid_k,kernel_ridge_regression,X_train,Y_train, range_min, range_max)
-        print str(i) + " kernel_ridge_regression :\t\t\t\t",
-        print kernel_regress_k_cross.execute()
-        decision_class_k_cross = k_fold_cross_validation(cross_valid_k,decision_tree_classifier,X_train,Y_train, range_min, range_max)
-        print str(i) + " decision_tree_classifier :\t\t\t\t",
-        print decision_class_k_cross.execute()
+        linear_accuracy.append(linear_k_cross.execute())
+        logistic_k_cross = k_fold_cross_validation(cross_valid_k,logistic_regression,X_train,Y_train,range_min,range_max)
+        logistic_accuracy.append(logistic_k_cross.execute())
+        svr_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_regression,X_train,Y_train,range_min,range_max)
+        svr_accuracy.append(svr_k_cross.execute())
+        svm_k_cross = k_fold_cross_validation(cross_valid_k,support_vector_machine,X_train,Y_train, range_min,range_max)
+        svm_accuracy.append(svm_k_cross.execute())
+        kernel_regress_k_cross = k_fold_cross_validation(cross_valid_k,kernel_ridge_regression,X_train,Y_train,range_min,range_max)
+        kernel_regress_accuracy.append(kernel_regress_k_cross.execute())
+        decision_class_k_cross = k_fold_cross_validation(cross_valid_k,decision_tree_classifier,X_train,Y_train,range_min,range_max)
+        decision_tree_accuracy.append(decision_class_k_cross.execute())
+        #neural_k_cross = k_fold_cross_validation(cross_valid_k,neural_logistic_pipeline,X_train,Y_train,range_min,range_max)
+        #neural_pipeline.append(neural_k_cross.execute())
+    print " linear_regression :\t\t\t\t\t" + str(linear_accuracy)
+    print " logistic_regression :\t\t\t\t\t" + str(logistic_accuracy)
+    print " support_vector_regression :\t\t\t\t" + str(svr_accuracy)
+    print " support_vector_machine :\t\t\t\t" + str(svm_accuracy)
+    print " kernel_ridge_regression :\t\t\t\t" + str(kernel_regress_accuracy)
+    print " decision_tree_classifier :\t\t\t\t" + str(decision_tree_accuracy)
+    #print " neural_pipeline :\t\t\t\t" + str(neural_pipeline)
 
 if __name__=='__main__':
     data_manipulation();
