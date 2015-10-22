@@ -127,7 +127,6 @@ def data_manipulation():
     svm_accuracy = []
     kernel_regress_accuracy = []
     decision_tree_accuracy = []
-    #neural_pipeline = []
     for i in [1,3,4,5,6]: #to change after feature extraction done for all sets
         # training data
         train_data = []
