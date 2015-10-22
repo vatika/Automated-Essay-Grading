@@ -82,7 +82,7 @@ class neural_logistic_pipeline(meta_linear):
         self.rbm = BernoulliRBM(learning_rate=0.006, n_iter=10, n_components=100)
         super(self.__class__, self).__init__(Pipeline(steps=[('rbm', self.rbm), ('logistic', self.logistic)]))
 
-class k_fold_cross_validation:
+class k_fold_cross_validation(object):
     '''
         The class will take an statistical class and training set and parameter k.
         The set will be divided wrt to k and cross validated using the statistical
@@ -173,4 +173,4 @@ def data_manipulation():
     #print " neural_pipeline :\t\t\t\t" + str(neural_pipeline)
 
 if __name__=='__main__':
-    data_manipulation();
+    data_manipulation()

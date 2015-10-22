@@ -6,6 +6,9 @@ from scipy.spatial.distance import pdist, squareform
 from sklearn.cross_validation import KFold
 
 class graph_diffusion():
+    def __init__(range_min,range_max):
+        self.range_min = range_min
+        self.range_max = range_max
     # similarity measure
     def similarity_measure(self,X):
         # this is an NxD matrix, where N is number of items and D its dimensionalites
@@ -22,19 +25,31 @@ class graph_diffusion():
         D = self.calculate_degree_matrix(W)
         # to normalize laplacian
         L = D - W
-        return L
+        # normalized L = D(^-1/2)LD(^-1/2)
+        D_sqrt_inv = np.sqrtm(np.inv(D))
+        norm_L = D_sqrt_inv.dot(L)
+        norm_L = norm_L.(D_sqrt_inv)
+        return norm_L
 
+    # The formulation is transducive,
+    # ie. the training set and the test
+    # set is known.
     def train(self,x_train,x_test,y_train):
         # Y   n*l(no of categories) matrix
         # a column has values 1 -1 0 for present , not present and not known
         # ghosh compute this Y
         # Y  =
-
+        dim = self.range_max - self.range_min + 1
+        Y = np.zeros((len(x_train)+len(y_train), dim))
+        for itx in xrange(0, len(y_train)):
+            for val in xrange(0, len(dim)):
+                Y[itx, val] = -1
+            Y[itx,y_train[itx]] = 1
         X = np.concatenate((x_train,x_test),axis=0)
         L = self.formulate_graph_laplacian(X)
         self.SVD = np.linalg.svd(L,full_matrices=1,compute_uv=1)
         [self.E_vec,self.E_val,waste] = np.diag(self.SVD[1])
-        #heat matrix at different times(scales) and visualizations
+        # heat matrix at different times(scales) and visualizations
         # small t for small diffusion and vice versa
         for  i in xrange(1,3)
             t =  10**i
@@ -42,12 +57,12 @@ class graph_diffusion():
             H1 = np.dot(np.dot(self.E_vec,np.diag(self.E_val)),self.E_Vec.T)
             Y1 = H*Y
             # now maximum voting comes in play
-        # now voting in high time and low time     
+        # now voting in high time and low time
 
     def predict(self):
         raise BaseException("Fuck You")
 
-class k_fold_cross_validation:
+class k_fold_cross_validation(object):
     def __init__(self,k,stat_class,x_train,y_train,range_min,range_max):
         self.k_cross = float(k)
         self.stat_class = stat_class
@@ -63,7 +78,7 @@ class k_fold_cross_validation:
         for train_idx, test_idx in kf:
             x_train, x_test = self.x_train[train_idx], self.x_train[test_idx]
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
-            stat_obj = self.stat_class() # reflection bitches
+            stat_obj = self.stat_class(range_min,range_max) # reflection bitches
             stat_obj.train(x_train,x_test,y_train)
             y_pred = stat_obj.predict()
             cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,self.range_min,self.range_max)
