@@ -6,7 +6,7 @@ from scipy.spatial.distance import pdist, squareform
 from sklearn.cross_validation import KFold
 
 class graph_diffusion():
-    def __init__(range_min,range_max):
+    def __init__(self,range_min,range_max):
         self.range_min = range_min
         self.range_max = range_max
     # similarity measure
@@ -23,42 +23,53 @@ class graph_diffusion():
     def formulate_graph_laplacian(self,X): # this is an NxD matrix
         W = self.similarity_measure(X)
         D = self.calculate_degree_matrix(W)
-        # to normalize laplacian
         L = D - W
+        # eigen vector calculation may change if we use normalized :: so wait for normalized
         # normalized L = D(^-1/2)LD(^-1/2)
-        D_sqrt_inv = np.sqrtm(np.inv(D))
-        norm_L = D_sqrt_inv.dot(L)
-        norm_L = norm_L.(D_sqrt_inv)
-        return norm_L
+        #D_sqrt_inv = np.sqrtm(np.inv(D))
+        #norm_L = D_sqrt_inv.dot(L)
+        #norm_L = norm_L.(D_sqrt_inv)
+        return L
 
     # The formulation is transducive,
     # ie. the training set and the test
     # set is known.
     def train(self,x_train,x_test,y_train):
+
         # Y   n*l(no of categories) matrix
         # a column has values 1 -1 0 for present , not present and not known
-        # ghosh compute this Y
-        # Y  =
         dim = self.range_max - self.range_min + 1
-        Y = np.zeros((len(x_train)+len(y_train), dim))
+        Y = np.zeros((len(x_train)+len(x_test), dim))
         for itx in xrange(0, len(y_train)):
-            for val in xrange(0, len(dim)):
+            for val in xrange(0, dim):
                 Y[itx, val] = -1
-            Y[itx,y_train[itx]] = 1
+            Y[itx,int(y_train[itx])-range_min] = 1
         X = np.concatenate((x_train,x_test),axis=0)
         L = self.formulate_graph_laplacian(X)
         self.SVD = np.linalg.svd(L,full_matrices=1,compute_uv=1)
-        [self.E_vec,self.E_val,waste] = np.diag(self.SVD[1])
+        [self.E_vec_U,self.E_val,self.E_vec_V] = self.SVD
         # heat matrix at different times(scales) and visualizations
         # small t for small diffusion and vice versa
-        for  i in xrange(1,3)
+        for  i in xrange(1,3):
             t =  10**i
             temp = scipy.exp(-self.E_val*t)
-            H1 = np.dot(np.dot(self.E_vec,np.diag(self.E_val)),self.E_Vec.T)
-            Y1 = H*Y
+            H1 = np.dot(np.dot(self.E_vec_U,np.diag(self.E_val)),self.E_vec_V)
+            Y1 = np.dot(H1,Y) # matrix multiplication is so shitty in numpy/python
+            print Y1
+            print np.shape(Y1)
             # now maximum voting comes in play
-        # now voting in high time and low time
-
+            Z1 = np.zeros(np.size(x_test,0))
+            print np.shape(Z1)
+            for i in xrange(len(y_train),len(Y1)):
+                present_max = -10000
+                max_ind = 0;
+                for j in xrange(0,dim):
+                    if Y1[i,j] > present_max:
+                        Y1[i,j] = present_max
+                        max_ind = i
+                    Z1[i-len(y_train)] = max_ind+ self.range_min
+            print  Z1
+        # now voting in high time and low time and prediction of scores accordingly
     def predict(self):
         raise BaseException("Fuck You")
 
