@@ -2,6 +2,8 @@
 import csv
 import numpy as np
 import scipy
+import scipy.linalg
+from scipy.sparse import csgraph
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cross_validation import KFold
 
@@ -17,61 +19,56 @@ class graph_diffusion():
         return  scipy.exp(pairwise_dists / s ** 2)
 
     def calculate_degree_matrix(self,W):
-        return  np.diag(sum(W.T))
+        return np.diag(sum(W.T))
 
     # graph adjacenvy matrix formulation
     def formulate_graph_laplacian(self,X): # this is an NxD matrix
         W = self.similarity_measure(X)
         D = self.calculate_degree_matrix(W)
-        L = D - W
-        # eigen vector calculation may change if we use normalized :: so wait for normalized
-        # normalized L = D(^-1/2)LD(^-1/2)
-        #D_sqrt_inv = np.sqrtm(np.inv(D))
-        #norm_L = D_sqrt_inv.dot(L)
-        #norm_L = norm_L.(D_sqrt_inv)
-        return L
+        return csgraph.laplacian(W, normed=True), D
 
     # The formulation is transducive,
     # ie. the training set and the test
     # set is known.
     def train(self,x_train,x_test,y_train):
-
         # Y   n*l(no of categories) matrix
         # a column has values 1 -1 0 for present , not present and not known
-        dim = self.range_max - self.range_min + 1
-        Y = np.zeros((len(x_train)+len(x_test), dim))
+        self.test_size = len(x_test)
+        self.train_size = len(y_train)
+        self.dim = self.range_max - self.range_min + 1
+        self.Y = np.zeros((len(x_train)+len(x_test), self.dim))
         for itx in xrange(0, len(y_train)):
-            for val in xrange(0, dim):
-                Y[itx, val] = -1
-            Y[itx,int(y_train[itx])-range_min] = 1
-        X = np.concatenate((x_train,x_test),axis=0)
-        L = self.formulate_graph_laplacian(X)
-        self.SVD = np.linalg.svd(L,full_matrices=1,compute_uv=1)
-        [self.E_vec_U,self.E_val,self.E_vec_V] = self.SVD
+            for val in xrange(0, self.dim):
+                self.Y[itx, val] = -1
+            self.Y[itx,int(y_train[itx])-range_min] = 1
+        self.X = np.concatenate((x_train,x_test),0)
+        self.L,self.D = self.formulate_graph_laplacian(self.X)
+        [self.E_val,self.E_vec_U] = scipy.linalg.eigh(self.L,self.D)
+
+    def predict(self):
         # heat matrix at different times(scales) and visualizations
         # small t for small diffusion and vice versa
-        for  i in xrange(1,3):
-            t =  10**i
+        itr = 5
+        Z = np.zeros((self.test_size,itr))
+        for  i in xrange(0,itr):
+            # the main trick is in the following 5 lines
+            t =  0.00000001*(10**i)
             temp = scipy.exp(-self.E_val*t)
-            H1 = np.dot(np.dot(self.E_vec_U,np.diag(self.E_val)),self.E_vec_V)
-            Y1 = np.dot(H1,Y) # matrix multiplication is so shitty in numpy/python
-            print Y1
-            print np.shape(Y1)
+            H1 = np.dot(np.dot(self.E_vec_U,np.diag(temp)),self.E_vec_U.T)
+            Y1 = np.dot(H1,self.Y) # matrix multiplication is so shitty in numpy/python
             # now maximum voting comes in play
-            Z1 = np.zeros(np.size(x_test,0))
-            print np.shape(Z1)
-            for i in xrange(len(y_train),len(Y1)):
+            Z1 = np.zeros(self.test_size)
+            for j in xrange(self.train_size,len(Y1)):
                 present_max = -10000
-                max_ind = 0;
-                for j in xrange(0,dim):
-                    if Y1[i,j] > present_max:
-                        Y1[i,j] = present_max
-                        max_ind = i
-                    Z1[i-len(y_train)] = max_ind+ self.range_min
-            print  Z1
+                max_ind = 0
+                for k in xrange(0,self.dim):
+                    if Y1[j,k] > present_max:
+                        present_max = Y1[j,k]
+                        max_ind = k
+                    Z1[j - self.train_size] = max_ind + self.range_min
+            Z[:,i] = Z1
+        print Z
         # now voting in high time and low time and prediction of scores accordingly
-    def predict(self):
-        raise BaseException("Fuck You")
 
 class k_fold_cross_validation(object):
     def __init__(self,k,stat_class,x_train,y_train,range_min,range_max):
@@ -99,7 +96,7 @@ class k_fold_cross_validation(object):
 
 
 if __name__ == "__main__":
-    for i in [1,3,4,5,6]: #to change after feature extraction done for all sets
+    for i in [3,4,5,6]: #to change after feature extraction done for all sets
         # training data
         train_data = []
         with open('./Data/features_'+str(i)+'.csv','r') as in_file:
