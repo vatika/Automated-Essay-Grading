@@ -1,4 +1,4 @@
-# Copyright 2015 - Anurag Ghosh, Vatika Harlalka, Abhijeet Kumar
+# Copyright 2015 - Vatika Harlalka, Anurag Ghosh, Abhijeet Kumar
 import csv
 import nltk
 import string

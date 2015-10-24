@@ -19,61 +19,147 @@ with warnings.catch_warnings():
 
     import weighted_kappa as own_wp
 
-    from random import random
-    from bisect import bisect
-
 
 # similarity measures
+# Remember --> similarity is inversely proportional to distance measure
 def gaussian_kernel(X):
-    # this is an NxD matrix, where N is number of items and D its dimensionalites
+    '''
+        Input:
+            X --> The feature set of essays, of size N * D
+        Output:
+            exp(-|x - y|**2) for all x and y belonging to rows(X)
+            This is the guassian similarity measure.
+    '''
     s = 100
     pairwise_dists = -1 * squareform(pdist(X, 'euclidean'))**2
     return  scipy.exp(pairwise_dists / s ** 2)
 
 def linear_kernel(X):
+    '''
+        Input:
+            X --> The feature set of essays, of size N * D
+        Output:
+            1/|x - y| for all x and y belonging to rows(X)
+            This is the linear similarity measure.
+        Note:
+            All output[i,j] equal to NaN and inf are set to 0.0
+    '''
     pairwise_dists = 1/squareform(pdist(X, 'euclidean'))
     nan_idx = np.isnan(pairwise_dists)
     pairwise_dists[pairwise_dists == -np.inf] = 0.0
     pairwise_dists[pairwise_dists == +np.inf] = 0.0
     pairwise_dists[nan_idx] = 0.0
-    #print np.shape(pairwise_dists)
     return pairwise_dists
 
 class graph_diffusion():
-    def __init__(self,range_min,range_max, similarity_measure,voting="exponential"):
+    '''
+        Weak Supervision Method to classify using spectral graph
+        analysis on a transducive setup and parameterized similarity
+        measure between two essays.
+    '''
+    def __init__(self,range_min,range_max,similarity_measure,voting="exponential"):
+        '''
+            Input:
+                range_min --> minimum range of marks awarded
+                range_max --> maximum range of marks awarded
+                similarity_measure --> the kernel that is to be used.
+                                       Preferably a one-one mapping.
+                voting --> can be either "exponential" or "average" or "stochastic"
+            Output:
+                None
+            Note:
+                "average" <- Takes the average of all the predicted values.
+                "exponential" <- A weighted average of the values is taken with weights
+                                  as e^-i where i is the i'th iteration of the heat matrix.
+                "stochastic" <- The value is chosen among the values with a
+                                  probability of e^-i where i is the i'th iteration
+                                  of the heat matrix.
+        '''
         self.range_min = range_min
         self.range_max = range_max
         self.similarity_measure = similarity_measure
         self.voting = voting
 
     def calculate_degree_matrix(self,W):
+        """
+            Input:
+                W --> The similarity measure of the points pairwise taken.
+                      Can be interpreted as a graph.
+            Output:
+                D --> The degree matrix of the graph W.
+            Note:
+                None
+        """
         return np.diag(sum(W.T))
 
     # graph adjacenvy matrix formulation
-    def formulate_graph_laplacian(self,X): # this is an NxD matrix
+    def formulate_graph_laplacian(self,X):
+        """
+            Input:
+                X --> The feature set of essays, of size N * D
+            Output:
+                L --> Laplacian Matrix of the graph formed by the essay set X.
+                      We form the graph W from X by computing the similarity
+                      between x and y for all x and y belonging to X
+                      Then we find the degree matrix D of W, which is a diagonal
+                      matrix.
+                      Laplacian L is defined as
+                                            L = D - W
+                      Normalized Laplacian is defined as
+                                        l_norm = D^(-1/2)*L*D^(-1/2)
+                      Normalized Laplacian are known to work marginally better
+                      than in graph diffusion.
+                D -->  The degree matrix D of W
+            Note:
+                None
+        """
         W = self.similarity_measure(X)
         D = self.calculate_degree_matrix(W)
         return csgraph.laplacian(W, normed=True), D
 
-    # The formulation is transducive,
-    # ie. the training set and the test
-    # set is known.
     def train(self,x_train,x_test,y_train):
-        # Y   n*l(no of categories) matrix
-        # a column has values 1 -1 0 for present , not present and not known
+        """
+            Input:
+                x_train --> The training samples.
+                x_test --> The testing samples.
+                y_train --> The ground truth of the training samples.
+            Output:
+                E_val --> The eigenvalues of the generalized eigen equation
+                          of the form
+                                    L*X = (lambda)D*X
+                          where L is the graph laplacian and D is the
+                          Degree Matrix of the graph formed by the points in
+                          both the training set and the testing set.
+                E_vec --> The eigenvectors in the aformentioned eigen equation.
+            Note:
+                Y --> n*l(no of categories) matrix. A column has values 1, -1, 0
+                      for present, not present and unknown.
+                Remark - The formulation is transducive,
+                         ie. the training set and the test
+                         set is known at the time of training.
+                Impl. Remark - scipy.linalg.eigh is used instead of
+                               scipy.linalg.eig because D is diagonal matrix
+        """
         self.test_size = len(x_test)
         self.train_size = len(y_train)
         self.dim = self.range_max - self.range_min + 1
-        self.Y = np.zeros((len(x_train)+len(x_test), self.dim))
-        rng = [val for val in xrange(0, self.dim)]
+        self.Y = np.zeros((self.train_size + self.test_size, self.dim))
+        rng = [ val for val in xrange(0, self.dim) ]
         for itx in xrange(0, len(y_train)):
             self.Y[itx, rng] = -1
-            self.Y[itx,int(y_train[itx])-range_min] = 1
+            self.Y[itx,int(y_train[itx])-range_min] = 1 # Subtract to compensate for non zero range start (refer self.predict)
         self.X = np.concatenate((x_train,x_test),0)
         self.L,self.D = self.formulate_graph_laplacian(self.X)
         [self.E_val,self.E_vec_U] = scipy.linalg.eigh(self.L,self.D)
 
     def exp_voting(self,Z):
+        """
+            Input:
+                Z --> The heat matrix at different time scales stored row wise.
+            Output:
+                Weighted average of all the predicted values with weights
+                as e^-i where i is the i'th iteration of the heat matrix.
+        """
         ans = np.zeros(self.test_size)
         weighted_denom = 0
         for i in xrange(0,itr):
@@ -82,37 +168,63 @@ class graph_diffusion():
         return np.round(ans/weighted_denom)
 
     def average_voting(self,Z):
+        """
+            Input:
+                Z --> The heat matrix at different time scales stored row wise.
+            Output:
+                Average of all the predicted values.
+        """
         return np.round(sum(Z.T)/itr)
 
     def stochastic_voting(self, Z):
+        """
+            Input:
+                Z --> The heat matrix at different time scales stored row wise.
+            Output:
+                Randomly chosen value from set of predicted values (in a column)
+                with probability as e^-i where i is the i'th iteration
+                of the heat matrix.
+            Note:
+                Should converge to "exp_voting" method given enough iterations.
+        """
         weights = [scipy.exp(-1*i) for i in xrange(0,self.itr)]
-        wieghts = weights/sum(weights)
+        weights = weights/sum(weights)
         ans = np.zeros(self.test_size)
         for i in xrange(0,self.test_size):
             ans[i] = np.random.choice(Z[i,:], p=weights)
         return ans
 
     def predict(self):
-        # heat matrix at different times(scales) and visualizations
-        # small t for small diffusion and vice versa
+        """
+            Input: (indirect)
+                x_test --> The testing samples. However, as the setup is
+                           transducive, we need x_test during training.
+            Output:
+                Voted values of prediction over the various heat matrix of
+                different times as defined by
+                        t = k*(a^i) with k and a as consts, and i as iteration.
+                and heat matrix is defined as
+                        H = E_vec*E_val^t*E_vec
+                where E_vec and E_val are the eigenvalues & eigenvectors of the
+                generalized eigen equation of the form L*X = (lambda)D*X with
+                L being the graph laplacian and D being the degree matrix.
+            Note:
+                Maximum voting is used here to predict.
+                Small t implies local diffusion.
+                Large t implies global diffusion.
+        """
         self.itr = 5
         Z = np.zeros((self.test_size,self.itr))
         for i in xrange(0,self.itr):
-            # the main trick is in the following 5 lines
             t =  0.000000001*(100**i)
             temp = scipy.exp(-self.E_val*t)
             H1 = np.dot(np.dot(self.E_vec_U,np.diag(temp)),self.E_vec_U.T)
-            Y1 = np.dot(H1,self.Y) # matrix multiplication is so shitty in numpy/python
+            Y1 = np.dot(H1,self.Y)
             # now maximum voting comes in play
             Z1 = np.zeros(self.test_size)
             for j in xrange(self.train_size,len(Y1)):
-                present_max = -100000000
-                max_ind = 0
-                for k in xrange(0,self.dim):
-                    if Y1[j,k] > present_max:
-                        present_max = Y1[j,k]
-                        max_ind = k
-                    Z1[j - self.train_size] = max_ind + self.range_min
+                max_ind = np.argmax(Y1[j,:])
+                Z1[j - self.train_size] = max_ind + self.range_min # Sum to compensate for non zero range start (refer self.train)
             Z[:,i] = Z1
         # now voting in high time and low time and prediction of scores accordingly
         if self.voting == "exponential":
@@ -141,10 +253,13 @@ class k_fold_cross_validation(object):
         for train_idx, test_idx in kf:
             x_train, x_test = self.x_train[train_idx], self.x_train[test_idx]
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
-            stat_obj = self.stat_class(range_min,range_max, self.similarity_measure,voting="stochastic") # reflection bitches
+            stat_obj = self.stat_class(range_min=range_min,range_max=range_max, \
+                                        similarity_measure=self.similarity_measure, \
+                                        voting="stochastic") # reflection bitches
             stat_obj.train(x_train,x_test,y_train)
             y_pred = np.matrix(stat_obj.predict()).T
-            cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,self.range_min,self.range_max)
+            cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,\
+                                    self.range_min,self.range_max)
             self.values.append(cohen_kappa_rating)
         return str(sum(self.values)/self.k_cross)
 
@@ -174,5 +289,7 @@ if __name__ == "__main__":
             range_max = 3
         elif i == 5 or i == 6:
             range_max = 4
-        diffusion_k_cross = k_fold_cross_validation(cross_valid_k,graph_diffusion,X_train,Y_train,range_min,range_max,gaussian_kernel)
+        diffusion_k_cross = k_fold_cross_validation(cross_valid_k, \
+                                                    graph_diffusion, X_train,Y_train, \
+                                                    range_min,range_max,gaussian_kernel)
         print diffusion_k_cross.execute()
