@@ -1,23 +1,47 @@
 # graph diffusion
 import csv
+
 import numpy as np
+
 import scipy
 import scipy.linalg
+
 from scipy.sparse import csgraph
 from scipy.spatial.distance import pdist, squareform
+
 from sklearn.cross_validation import KFold
+from sklearn.metrics.pairwise import chi2_kernel, rbf_kernel
+
 import weighted_kappa as own_wp
 
+def gauss_kernel(X):
+    return rbf_kernel(X, gamma=0.00006)
+
+# similarity measure
+def gaussian_kernel(X):
+    # this is an NxD matrix, where N is number of items and D its dimensionalites
+    s = 100
+    pairwise_dists = -1 * squareform(pdist(X, 'euclidean'))**2
+    return  scipy.exp(pairwise_dists / s ** 2)
+
+def linear_kernel(X):
+    pairwise_dists = 1/squareform(pdist(X, 'euclidean'))
+    nan_idx = np.isnan(pairwise_dists)
+    pairwise_dists[pairwise_dists == -np.inf] = 0.0
+    pairwise_dists[pairwise_dists == +np.inf] = 0.0
+    pairwise_dists[nan_idx] = 0.0
+    #print np.shape(pairwise_dists)
+    return pairwise_dists
+
+def chi_squared_kernel(X):
+    pairwise_dists = chi2_kernel(X, gamma=0.01)
+    return pairwise_dists
+
 class graph_diffusion():
-    def __init__(self,range_min,range_max):
+    def __init__(self,range_min,range_max, similarity_measure):
         self.range_min = range_min
         self.range_max = range_max
-    # similarity measure
-    def similarity_measure(self,X):
-        # this is an NxD matrix, where N is number of items and D its dimensionalites
-        s = 100
-        pairwise_dists = -1 * squareform(pdist(X, 'euclidean'))**2
-        return  scipy.exp(pairwise_dists / s ** 2)
+        self.similarity_measure = similarity_measure
 
     def calculate_degree_matrix(self,W):
         return np.diag(sum(W.T))
@@ -51,16 +75,16 @@ class graph_diffusion():
         # small t for small diffusion and vice versa
         itr = 5
         Z = np.zeros((self.test_size,itr))
-        for  i in xrange(0,itr):
+        for i in xrange(0,itr):
             # the main trick is in the following 5 lines
-            t =  0.00000001*(10**i)
+            t =  0.000000001*(100**i)
             temp = scipy.exp(-self.E_val*t)
             H1 = np.dot(np.dot(self.E_vec_U,np.diag(temp)),self.E_vec_U.T)
             Y1 = np.dot(H1,self.Y) # matrix multiplication is so shitty in numpy/python
             # now maximum voting comes in play
             Z1 = np.zeros(self.test_size)
             for j in xrange(self.train_size,len(Y1)):
-                present_max = -10000
+                present_max = -100000000
                 max_ind = 0
                 for k in xrange(0,self.dim):
                     if Y1[j,k] > present_max:
@@ -68,11 +92,11 @@ class graph_diffusion():
                         max_ind = k
                     Z1[j - self.train_size] = max_ind + self.range_min
             Z[:,i] = Z1
-        return Z[:,1]
+        return np.round(sum(Z.T)/itr)
         # now voting in high time and low time and prediction of scores accordingly
 
 class k_fold_cross_validation(object):
-    def __init__(self,k,stat_class,x_train,y_train,range_min,range_max):
+    def __init__(self,k,stat_class,x_train,y_train,range_min,range_max,similarity_measure):
         self.k_cross = float(k)
         self.stat_class = stat_class
         self.x_train = x_train
@@ -80,6 +104,7 @@ class k_fold_cross_validation(object):
         self.values = []
         self.range_min = range_min
         self.range_max = range_max
+        self.similarity_measure = similarity_measure
 
     def execute(self):
         kf = KFold(len(self.x_train), n_folds=self.k_cross)
@@ -87,7 +112,7 @@ class k_fold_cross_validation(object):
         for train_idx, test_idx in kf:
             x_train, x_test = self.x_train[train_idx], self.x_train[test_idx]
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
-            stat_obj = self.stat_class(range_min,range_max) # reflection bitches
+            stat_obj = self.stat_class(range_min,range_max, self.similarity_measure) # reflection bitches
             stat_obj.train(x_train,x_test,y_train)
             y_pred = np.matrix(stat_obj.predict()).T
             cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,self.range_min,self.range_max)
@@ -120,5 +145,5 @@ if __name__ == "__main__":
             range_max = 3
         elif i == 5 or i == 6:
             range_max = 4
-        diffusion_k_cross = k_fold_cross_validation(cross_valid_k,graph_diffusion,X_train,Y_train,range_min,range_max)
+        diffusion_k_cross = k_fold_cross_validation(cross_valid_k,graph_diffusion,X_train,Y_train,range_min,range_max,gaussian_kernel)
         print diffusion_k_cross.execute()
