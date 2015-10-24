@@ -6,6 +6,7 @@ import scipy.linalg
 from scipy.sparse import csgraph
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cross_validation import KFold
+import weighted_kappa as own_wp
 
 class graph_diffusion():
     def __init__(self,range_min,range_max):
@@ -67,7 +68,7 @@ class graph_diffusion():
                         max_ind = k
                     Z1[j - self.train_size] = max_ind + self.range_min
             Z[:,i] = Z1
-        print Z
+        return Z[:,1]
         # now voting in high time and low time and prediction of scores accordingly
 
 class k_fold_cross_validation(object):
@@ -88,7 +89,7 @@ class k_fold_cross_validation(object):
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
             stat_obj = self.stat_class(range_min,range_max) # reflection bitches
             stat_obj.train(x_train,x_test,y_train)
-            y_pred = stat_obj.predict()
+            y_pred = np.matrix(stat_obj.predict()).T
             cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,self.range_min,self.range_max)
             self.values.append(cohen_kappa_rating)
         return str(sum(self.values)/self.k_cross)
@@ -96,7 +97,7 @@ class k_fold_cross_validation(object):
 
 
 if __name__ == "__main__":
-    for i in [3,4,5,6]: #to change after feature extraction done for all sets
+    for i in [1,3,4,5,6]: #to change after feature extraction done for all sets
         # training data
         train_data = []
         with open('./Data/features_'+str(i)+'.csv','r') as in_file:
