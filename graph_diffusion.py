@@ -1,23 +1,29 @@
-# graph diffusion
-import csv
+# Copyright 2015 Abhijeet Kumar ,Anurag Ghosh, Vatika Harlalka
+# Graph Diffusion Techniques
 
-import numpy as np
+import warnings
 
-import scipy
-import scipy.linalg
+with warnings.catch_warnings():
+    import csv
 
-from scipy.sparse import csgraph
-from scipy.spatial.distance import pdist, squareform
+    import numpy as np
 
-from sklearn.cross_validation import KFold
-from sklearn.metrics.pairwise import chi2_kernel, rbf_kernel
+    import scipy
+    import scipy.linalg
 
-import weighted_kappa as own_wp
+    from scipy.sparse import csgraph
+    from scipy.spatial.distance import pdist, squareform
 
-def gauss_kernel(X):
-    return rbf_kernel(X, gamma=0.00006)
+    from sklearn.cross_validation import KFold
+    from sklearn.metrics.pairwise import chi2_kernel, rbf_kernel
 
-# similarity measure
+    import weighted_kappa as own_wp
+
+    from random import random
+    from bisect import bisect
+
+
+# similarity measures
 def gaussian_kernel(X):
     # this is an NxD matrix, where N is number of items and D its dimensionalites
     s = 100
@@ -33,15 +39,12 @@ def linear_kernel(X):
     #print np.shape(pairwise_dists)
     return pairwise_dists
 
-def chi_squared_kernel(X):
-    pairwise_dists = chi2_kernel(X, gamma=0.01)
-    return pairwise_dists
-
 class graph_diffusion():
-    def __init__(self,range_min,range_max, similarity_measure):
+    def __init__(self,range_min,range_max, similarity_measure,voting="exponential"):
         self.range_min = range_min
         self.range_max = range_max
         self.similarity_measure = similarity_measure
+        self.voting = voting
 
     def calculate_degree_matrix(self,W):
         return np.diag(sum(W.T))
@@ -62,20 +65,39 @@ class graph_diffusion():
         self.train_size = len(y_train)
         self.dim = self.range_max - self.range_min + 1
         self.Y = np.zeros((len(x_train)+len(x_test), self.dim))
+        rng = [val for val in xrange(0, self.dim)]
         for itx in xrange(0, len(y_train)):
-            for val in xrange(0, self.dim):
-                self.Y[itx, val] = -1
+            self.Y[itx, rng] = -1
             self.Y[itx,int(y_train[itx])-range_min] = 1
         self.X = np.concatenate((x_train,x_test),0)
         self.L,self.D = self.formulate_graph_laplacian(self.X)
         [self.E_val,self.E_vec_U] = scipy.linalg.eigh(self.L,self.D)
 
+    def exp_voting(self,Z):
+        ans = np.zeros(self.test_size)
+        weighted_denom = 0
+        for i in xrange(0,itr):
+            weighted_denom += scipy.exp(-1*i)
+            ans += scipy.exp(-1*i)*Z[:,i]
+        return np.round(ans/weighted_denom)
+
+    def average_voting(self,Z):
+        return np.round(sum(Z.T)/itr)
+
+    def stochastic_voting(self, Z):
+        weights = [scipy.exp(-1*i) for i in xrange(0,self.itr)]
+        wieghts = weights/sum(weights)
+        ans = np.zeros(self.test_size)
+        for i in xrange(0,self.test_size):
+            ans[i] = np.random.choice(Z[i,:], p=weights)
+        return ans
+
     def predict(self):
         # heat matrix at different times(scales) and visualizations
         # small t for small diffusion and vice versa
-        itr = 5
-        Z = np.zeros((self.test_size,itr))
-        for i in xrange(0,itr):
+        self.itr = 5
+        Z = np.zeros((self.test_size,self.itr))
+        for i in xrange(0,self.itr):
             # the main trick is in the following 5 lines
             t =  0.000000001*(100**i)
             temp = scipy.exp(-self.E_val*t)
@@ -92,8 +114,15 @@ class graph_diffusion():
                         max_ind = k
                     Z1[j - self.train_size] = max_ind + self.range_min
             Z[:,i] = Z1
-        return np.round(sum(Z.T)/itr)
         # now voting in high time and low time and prediction of scores accordingly
+        if self.voting == "exponential":
+            return self.exp_voting(Z)
+        elif self.voting == "average":
+            return self.average_voting(Z)
+        elif self.voting == "stochastic":
+            return self.stochastic_voting(Z)
+        else:
+            raise BaseException("Unsupported Voting Measure")
 
 class k_fold_cross_validation(object):
     def __init__(self,k,stat_class,x_train,y_train,range_min,range_max,similarity_measure):
@@ -112,7 +141,7 @@ class k_fold_cross_validation(object):
         for train_idx, test_idx in kf:
             x_train, x_test = self.x_train[train_idx], self.x_train[test_idx]
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
-            stat_obj = self.stat_class(range_min,range_max, self.similarity_measure) # reflection bitches
+            stat_obj = self.stat_class(range_min,range_max, self.similarity_measure,voting="stochastic") # reflection bitches
             stat_obj.train(x_train,x_test,y_train)
             y_pred = np.matrix(stat_obj.predict()).T
             cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,self.range_min,self.range_max)
