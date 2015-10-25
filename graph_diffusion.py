@@ -5,37 +5,32 @@ import warnings
 
 with warnings.catch_warnings():
     import csv
-
     import numpy as np
-
     import scipy
     import scipy.linalg
-
     from scipy.sparse import csgraph
     from scipy.spatial.distance import pdist, squareform
-
     from sklearn.cross_validation import KFold
     from sklearn.metrics.pairwise import chi2_kernel, rbf_kernel
-
     import weighted_kappa as own_wp
 
 
 # similarity measures
 # Remember --> similarity is inversely proportional to distance measure
 def gaussian_kernel(X):
-    '''
+    """
         Input:
             X --> The feature set of essays, of size N * D
         Output:
             exp(-|x - y|**2) for all x and y belonging to rows(X)
             This is the guassian similarity measure.
-    '''
+    """
     s = 100
     pairwise_dists = -1 * squareform(pdist(X, 'euclidean'))**2
     return  scipy.exp(pairwise_dists / s ** 2)
 
 def linear_kernel(X):
-    '''
+    """
         Input:
             X --> The feature set of essays, of size N * D
         Output:
@@ -43,7 +38,7 @@ def linear_kernel(X):
             This is the linear similarity measure.
         Note:
             All output[i,j] equal to NaN and inf are set to 0.0
-    '''
+    """
     pairwise_dists = 1/squareform(pdist(X, 'euclidean'))
     nan_idx = np.isnan(pairwise_dists)
     pairwise_dists[pairwise_dists == -np.inf] = 0.0
@@ -52,19 +47,21 @@ def linear_kernel(X):
     return pairwise_dists
 
 class graph_diffusion():
-    '''
+    """
         Weak Supervision Method to classify using spectral graph
         analysis on a transducive setup and parameterized similarity
         measure between two essays.
-    '''
-    def __init__(self,range_min,range_max,similarity_measure,voting="exponential"):
-        '''
+    """
+    def __init__(self,range_min,range_max,similarity_measure,neighbourhood="exponential"):
+        """
             Input:
                 range_min --> minimum range of marks awarded
                 range_max --> maximum range of marks awarded
                 similarity_measure --> the kernel that is to be used.
                                        Preferably a one-one mapping.
-                voting --> can be either "exponential" or "average" or "stochastic"
+                neighbourhood --> can be either "exponential" or "average" or "stochastic"
+                                  neighbourhood means that the scaling used in diffusion
+                                  follows the specified curve and method.
             Output:
                 None
             Note:
@@ -74,11 +71,11 @@ class graph_diffusion():
                 "stochastic" <- The value is chosen among the values with a
                                   probability of e^-i where i is the i'th iteration
                                   of the heat matrix.
-        '''
+        """
         self.range_min = range_min
         self.range_max = range_max
         self.similarity_measure = similarity_measure
-        self.voting = voting
+        self.neighbourhood = neighbourhood
 
     def calculate_degree_matrix(self,W):
         """
@@ -152,7 +149,7 @@ class graph_diffusion():
         self.L,self.D = self.formulate_graph_laplacian(self.X)
         [self.E_val,self.E_vec_U] = scipy.linalg.eigh(self.L,self.D)
 
-    def exp_voting(self,Z):
+    def exp_neighbourhood(self,Z):
         """
             Input:
                 Z --> The heat matrix at different time scales stored row wise.
@@ -167,7 +164,7 @@ class graph_diffusion():
             ans += scipy.exp(-1*i)*Z[:,i]
         return np.round(ans/weighted_denom)
 
-    def average_voting(self,Z):
+    def average_neighbourhood(self,Z):
         """
             Input:
                 Z --> The heat matrix at different time scales stored row wise.
@@ -176,7 +173,7 @@ class graph_diffusion():
         """
         return np.round(sum(Z.T)/itr)
 
-    def stochastic_voting(self, Z):
+    def stochastic_neighbourhood(self, Z):
         """
             Input:
                 Z --> The heat matrix at different time scales stored row wise.
@@ -204,10 +201,17 @@ class graph_diffusion():
                 different times as defined by
                         t = k*(a^i) with k and a as consts, and i as iteration.
                 and heat matrix is defined as
-                        H = E_vec*E_val^t*E_vec
+                        H(t) = E_vec*exp(-1*E_val*t)*transpose(E_vec)
                 where E_vec and E_val are the eigenvalues & eigenvectors of the
                 generalized eigen equation of the form L*X = (lambda)D*X with
                 L being the graph laplacian and D being the degree matrix.
+                Then the diffused values are computed by
+                        Y(t) = H(t)*Y(0)
+                where Y(0) is the n*l(no of categories) matrix. A column has values 1, -1, 0
+                for present, not present and unknown.
+                Find the maximum over a row of Y(t) to find the classification wrt to Y(t).
+                Now, use neighbourhood diffusion to find the final classification estimate
+                from Y(t) for all t, for the x_test, ie. y_pred.
             Note:
                 Maximum voting is used here to predict.
                 Small t implies local diffusion.
@@ -220,19 +224,17 @@ class graph_diffusion():
             temp = scipy.exp(-self.E_val*t)
             H1 = np.dot(np.dot(self.E_vec_U,np.diag(temp)),self.E_vec_U.T)
             Y1 = np.dot(H1,self.Y)
-            # now maximum voting comes in play
             Z1 = np.zeros(self.test_size)
-            for j in xrange(self.train_size,len(Y1)):
+            for j in xrange(self.train_size,len(Y1)): # Only the unlabeled (x_test) is labeled
                 max_ind = np.argmax(Y1[j,:])
                 Z1[j - self.train_size] = max_ind + self.range_min # Sum to compensate for non zero range start (refer self.train)
             Z[:,i] = Z1
-        # now voting in high time and low time and prediction of scores accordingly
-        if self.voting == "exponential":
-            return self.exp_voting(Z)
-        elif self.voting == "average":
-            return self.average_voting(Z)
-        elif self.voting == "stochastic":
-            return self.stochastic_voting(Z)
+        if self.neighbourhood == "exponential":
+            return self.exp_neighbourhood(Z)
+        elif self.neighbourhood == "average":
+            return self.average_neighbourhood(Z)
+        elif self.neighbourhood == "stochastic":
+            return self.stochastic_neighbourhood(Z)
         else:
             raise BaseException("Unsupported Voting Measure")
 
@@ -255,7 +257,7 @@ class k_fold_cross_validation(object):
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
             stat_obj = self.stat_class(range_min=range_min,range_max=range_max, \
                                         similarity_measure=self.similarity_measure, \
-                                        voting="stochastic") # reflection bitches
+                                        neighbourhood="stochastic") # reflection bitches
             stat_obj.train(x_train,x_test,y_train)
             y_pred = np.matrix(stat_obj.predict()).T
             cohen_kappa_rating = own_wp.quadratic_weighted_kappa(y_test,y_pred,\
