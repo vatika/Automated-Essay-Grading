@@ -14,6 +14,7 @@ with warnings.catch_warnings():
     from sklearn.metrics.pairwise import chi2_kernel, rbf_kernel
     import weighted_kappa as own_wp
 
+from sklearn.lda import LDA
 
 # similarity measures
 # Remember --> similarity is inversely proportional to distance measure
@@ -291,6 +292,8 @@ if __name__ == "__main__":
             range_max = 3
         elif i == 5 or i == 6:
             range_max = 4
+        #dim_red = LDA()
+        #X_train = dim_red.fit_transform(X_train, Y_train)
         diffusion_k_cross = k_fold_cross_validation(cross_valid_k, \
                                                     graph_diffusion, X_train,Y_train, \
                                                     range_min,range_max,gaussian_kernel)

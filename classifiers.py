@@ -20,6 +20,7 @@ with warnings.catch_warnings():
     import nltk
     import weighted_kappa as own_wp
     import random
+    from sklearn.lda import LDA
 
 class meta_non_linear(object):
     def __init__(self, learner):
@@ -37,18 +38,25 @@ class meta_non_linear(object):
     def predict(self,X_test):
         d = self.L.predict(X_test)
         return d
-
+## Without LDA,
+## params are as follows -
+## gamma=0.00003
+## C=0.8
+## Remember this
+gamma = 0.003
+svm_gamma = 0.025
+C = 1.0
 class support_vector_regression(meta_non_linear):
     def __init__(self):
-        super(self.__class__, self).__init__(SVR(kernel='rbf', gamma=0.00003))
+        super(self.__class__, self).__init__(SVR(kernel='rbf', gamma=gamma))
 
 class kernel_ridge_regression(meta_non_linear):
     def __init__(self):
-        super(self.__class__, self).__init__(KernelRidge(kernel='rbf', gamma=0.00003, alpha=0.625)) # alpha = 1/(2*C)
+        super(self.__class__, self).__init__(KernelRidge(kernel='rbf', gamma=gamma, alpha=1/(2*C)))
 
 class support_vector_machine(meta_non_linear):
     def __init__(self):
-        super(self.__class__, self).__init__(SVC(kernel='rbf', gamma=0.0004, C=0.8))
+        super(self.__class__, self).__init__(SVC(kernel='rbf', gamma=svm_gamma, C=C))
 
 class decision_tree_classifier(meta_non_linear):
     def __init__(self):
@@ -74,13 +82,6 @@ class linear_regression(meta_linear):
 class logistic_regression(meta_linear):
     def __init__(self):
         super(self.__class__, self).__init__(LogisticRegression(penalty='l2', dual=False, C=0.8, fit_intercept=True, solver='lbfgs', multi_class='multinomial'))
-
-# TODO: Tweak the hyperparameters
-class neural_logistic_pipeline(meta_linear):
-    def __init__(self):
-        self.logistic = LogisticRegression(penalty='l2', dual=False, C=0.8, fit_intercept=True, solver='lbfgs', multi_class='multinomial')
-        self.rbm = BernoulliRBM(learning_rate=0.006, n_iter=10, n_components=100)
-        super(self.__class__, self).__init__(Pipeline(steps=[('rbm', self.rbm), ('logistic', self.logistic)]))
 
 class k_fold_cross_validation(object):
     '''
@@ -150,6 +151,8 @@ def data_manipulation():
             range_max = 3
         elif i == 5 or i == 6:
             range_max = 4
+        dim_red = LDA()
+        X_train = dim_red.fit_transform(X_train, Y_train)
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train,range_min,range_max)
         linear_accuracy.append(linear_k_cross.execute())
         logistic_k_cross = k_fold_cross_validation(cross_valid_k,logistic_regression,X_train,Y_train,range_min,range_max)
@@ -162,15 +165,12 @@ def data_manipulation():
         kernel_regress_accuracy.append(kernel_regress_k_cross.execute())
         decision_class_k_cross = k_fold_cross_validation(cross_valid_k,decision_tree_classifier,X_train,Y_train,range_min,range_max)
         decision_tree_accuracy.append(decision_class_k_cross.execute())
-        #neural_k_cross = k_fold_cross_validation(cross_valid_k,neural_logistic_pipeline,X_train,Y_train,range_min,range_max)
-        #neural_pipeline.append(neural_k_cross.execute())
     print " linear_regression :\t\t\t\t\t" + str(linear_accuracy)
     print " logistic_regression :\t\t\t\t\t" + str(logistic_accuracy)
     print " support_vector_regression :\t\t\t\t" + str(svr_accuracy)
     print " support_vector_machine :\t\t\t\t" + str(svm_accuracy)
     print " kernel_ridge_regression :\t\t\t\t" + str(kernel_regress_accuracy)
     print " decision_tree_classifier :\t\t\t\t" + str(decision_tree_accuracy)
-    #print " neural_pipeline :\t\t\t\t" + str(neural_pipeline)
 
 if __name__=='__main__':
     data_manipulation()
