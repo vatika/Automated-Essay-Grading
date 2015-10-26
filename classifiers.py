@@ -107,6 +107,9 @@ class k_fold_cross_validation(object):
         for train_idx, test_idx in kf:
             x_train, x_test = self.x_train[train_idx], self.x_train[test_idx]
             y_train, y_test = self.y_train[train_idx], self.y_train[test_idx]
+            dim_red = LDA()
+            x_train = dim_red.fit_transform(x_train, y_train)
+            x_test = dim_red.transform(x_test)
             stat_obj = self.stat_class() # reflection bitches
             stat_obj.train(x_train,y_train)
             y_pred = [ 0 for i in xrange(len(y_test)) ]
@@ -151,8 +154,6 @@ def data_manipulation():
             range_max = 3
         elif i == 5 or i == 6:
             range_max = 4
-        dim_red = LDA()
-        X_train = dim_red.fit_transform(X_train, Y_train)
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train,range_min,range_max)
         linear_accuracy.append(linear_k_cross.execute())
         logistic_k_cross = k_fold_cross_validation(cross_valid_k,logistic_regression,X_train,Y_train,range_min,range_max)
