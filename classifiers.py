@@ -45,7 +45,7 @@ class meta_non_linear(object):
 ## Remember this
 gamma = 0.003
 svm_gamma = 0.025
-C = 1.0
+C = 1
 class support_vector_regression(meta_non_linear):
     def __init__(self):
         super(self.__class__, self).__init__(SVR(kernel='rbf', gamma=gamma))
@@ -150,10 +150,15 @@ def data_manipulation():
         if i == 1:
             range_min = 2
             range_max = 12
+        elif i==2:
+            range_min = 1
+            range_max = 4
         elif i == 3 or i == 4:
             range_max = 3
         elif i == 5 or i == 6:
             range_max = 4
+        elif i==7:
+            range_max = 3
         linear_k_cross = k_fold_cross_validation(cross_valid_k,linear_regression,X_train,Y_train,range_min,range_max)
         linear_accuracy.append(linear_k_cross.execute())
         logistic_k_cross = k_fold_cross_validation(cross_valid_k,logistic_regression,X_train,Y_train,range_min,range_max)
@@ -172,6 +177,7 @@ def data_manipulation():
     print " support_vector_machine :\t\t\t\t" + str(svm_accuracy)
     print " kernel_ridge_regression :\t\t\t\t" + str(kernel_regress_accuracy)
     print " decision_tree_classifier :\t\t\t\t" + str(decision_tree_accuracy)
+
 
 if __name__=='__main__':
     data_manipulation()
