@@ -90,6 +90,51 @@ class graph_diffusion():
         """
         return np.diag(sum(W.T))
 
+    #make the similarity matrix sparisified
+    #reasons::
+        #manifold learning
+        #SVD computation
+    def sparsify(self,W,k,sparse_type):
+        """
+        Input:
+            W---> complete adjacency matrix calclulated using some similarity measure
+            k---> numner of nearest neighbors to consider
+            sparse_type---> k-nearest neighbor(0) or mutual k nerest neighbour(1) or completely_connected(2)(no sparsification)
+        Ouput:
+            S---> sparisified graph using k-nearest neighbors
+            i.e maximum k values in each rows are kept and rest reduced to zero
+            as accepted this will resuklt  in directed version of the graph
+            to  circumvent this we use :
+            k nearest neighbour :: connect if edge is in top k neighbor of any connecting node
+            mutual k nearest neighbour :: connect if edge is in top k neighbor of both the connecting nodes
+        """
+        if sparse_type == 2:
+            return W
+        shape = np.shape(W)
+        S = np.zeros(shape)
+        T = np.fliplr(np.sort(W,1))
+        for i in xrange(0,shape[0]):
+            for j in xrange(0,k):
+                temp = T[i,j]
+                locations = np.where(W[i]==temp)
+                for m in xrange(0,len(locations)):
+                    loc = locations[m]
+                    S[i,loc[0]] = temp
+                    if sparse_type == 0:
+                        S[loc[0],i] = temp
+        if sparse_type == 0:
+            return S
+        #nmutual k nearest neighbor not working :: something wrong coding
+        else:
+            M = (S + S.T) /2
+            for i in xrange(0,shape[0]):
+                for j in xrange(0,shape[1]):
+                    if M[i,j] != S[j,i]:
+                        S[i,j] =0
+            if (S==S.T).all():
+                print "haan"
+            print S
+            return S
     # graph adjacenvy matrix formulation
     def formulate_graph_laplacian(self,X):
         """
@@ -112,6 +157,7 @@ class graph_diffusion():
                 None
         """
         W = self.similarity_measure(X)
+        W = self.sparsify(W,100,0)   
         D = self.calculate_degree_matrix(W)
         return csgraph.laplacian(W, normed=True), D
 
